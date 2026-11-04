@@ -1,0 +1,40 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql_server
+    user: "0:0"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong@Password123
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql/data
+      - mssql_log:/var/opt/mssql/log
+      - mssql_secrets:/var/opt/mssql/secrets
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Password123' -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql_init
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      - MSSQL_SA_PASSWORD=YourStrong@Password123
+    volumes:
+      - ./backend/database/init:/scripts:ro
+    entrypoint: ["/bin/bash", "/scripts/create-database.sh"]
+    restart: "no"
+
+volumes:
+  mssql_data:
+  mssql_log:
+  mssql_secrets:
