@@ -12,7 +12,21 @@ class Role extends Model
      *
      * @var string
      */
-    protected $table = 'role';
+    protected $table = 'roles';
+
+    /**
+     * The primary key for the model.
+     *
+     * @var string
+     */
+    protected $primaryKey = 'role_id';
+
+    /**
+     * Indicates if the model should be timestamped.
+     *
+     * @var bool
+     */
+    public $timestamps = false;
 
     /**
      * The attributes that are mass assignable.
@@ -20,8 +34,7 @@ class Role extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'name',
-        'slug',
+        'role_name',
         'description',
     ];
 
@@ -30,6 +43,7 @@ class Role extends Model
      */
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'user_role');
+        return $this->belongsToMany(User::class, 'user_roles', 'role_id', 'user_id')
+            ->withPivot('assigned_at');
     }
 }

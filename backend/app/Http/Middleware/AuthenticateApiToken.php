@@ -25,7 +25,7 @@ class AuthenticateApiToken
 
         $user = User::with('roles')->find($payload['sub']);
 
-        if (! $user || ! $user->isAdmin()) {
+        if (! $user || ! $user->is_active || ! $user->isAdmin()) {
             return $this->unauthorized();
         }
 

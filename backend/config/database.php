@@ -104,7 +104,7 @@ return [
             'url' => env('DB_URL'),
             'host' => env('DB_HOST', 'localhost'),
             'port' => env('DB_PORT', '1433'),
-            'database' => env('DB_DATABASE', 'konveksi'),
+            'database' => env('DB_DATABASE', 'KonveksiSejahteraDB'),
             'username' => env('DB_USERNAME', 'sa'),
             'password' => env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
@@ -120,7 +120,7 @@ return [
                 'DB_ODBC_DSN',
                 'Driver={ODBC Driver 18 for SQL Server};Server='
                     .env('DB_HOST', '127.0.0.1').','.env('DB_PORT', '1433')
-                    .';Database='.env('DB_DATABASE', 'konveksi')
+                    .';Database='.env('DB_DATABASE', 'KonveksiSejahteraDB')
                     .';Encrypt=yes;TrustServerCertificate=yes;',
             ),
         ],

@@ -19,14 +19,20 @@ class AuthController extends Controller
     {
         $credentials = $request->validated();
 
-        $user = User::with('roles')
+        $user = User::with(['roles', 'employee'])
             ->where('email', $credentials['email'])
             ->first();
 
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+        if (! $user || ! Hash::check($credentials['password'], $user->password_hash)) {
             return response()->json([
                 'message' => 'Email atau password yang Anda masukkan salah.',
             ], 401);
+        }
+
+        if (! $user->is_active) {
+            return response()->json([
+                'message' => 'Akun ini sedang tidak aktif.',
+            ], 403);
         }
 
         if (! $user->isAdmin()) {
@@ -70,13 +76,14 @@ class AuthController extends Controller
     {
         return [
             'id' => $user->getKey(),
-            'name' => $user->name,
+            'name' => $user->employee?->name ?? $user->username,
+            'username' => $user->username,
             'email' => $user->email,
             'roles' => $user->roles
                 ->map(fn ($role) => [
                     'id' => $role->getKey(),
-                    'name' => $role->name,
-                    'slug' => $role->slug,
+                    'name' => $role->role_name,
+                    'slug' => $role->role_name,
                 ])
                 ->values()
                 ->all(),

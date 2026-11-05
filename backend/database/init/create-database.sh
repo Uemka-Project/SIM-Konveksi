@@ -14,8 +14,8 @@ for attempt in $(seq 1 30); do
   sleep 2
 done
 
-echo "Membuat database konveksi bila belum ada..."
+echo "Membuat database KonveksiSejahteraDB bila belum ada..."
 "$SQLCMD" -S sqlserver -U sa -P "$MSSQL_SA_PASSWORD" -C -b -Q \
-  "IF DB_ID(N'konveksi') IS NULL CREATE DATABASE konveksi;"
+  "IF DB_ID(N'KonveksiSejahteraDB') IS NULL CREATE DATABASE KonveksiSejahteraDB;"
 
-echo "Database konveksi siap."
+echo "Database KonveksiSejahteraDB siap."

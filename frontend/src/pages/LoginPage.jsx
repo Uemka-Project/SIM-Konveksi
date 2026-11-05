@@ -11,8 +11,8 @@ import {
 } from '../components/Icons'
 import { login } from '../services/auth'
 
-const DEMO_EMAIL = 'admin@konveksi.test'
-const DEMO_PASSWORD = 'Admin123!'
+const DEMO_EMAIL = 'dewi@konveksisejahtera.test'
+const DEMO_PASSWORD = 'Konveksi#2026'
 
 export default function LoginPage({ onAuthenticated }) {
   const [form, setForm] = useState({ email: '', password: '' })
@@ -99,7 +99,7 @@ export default function LoginPage({ onAuthenticated }) {
                 type="email"
                 value={form.email}
                 onChange={handleChange}
-                placeholder="admin@konveksi.test"
+                placeholder="dewi@konveksisejahtera.test"
                 autoComplete="email"
                 autoFocus
                 required
