@@ -1,81 +1,40 @@
-import { useEffect, useState } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import AppShell from './components/AppShell'
+import ProtectedRoute from './components/ProtectedRoute'
+import CustomersPage from './pages/CustomersPage'
+import DashboardPage from './pages/DashboardPage'
+import EmployeesPage from './pages/EmployeesPage'
 import LoginPage from './pages/LoginPage'
-import WelcomePage from './pages/WelcomePage'
-import {
-  clearSession,
-  fetchCurrentUser,
-  getStoredSession,
-  saveSession,
-} from './services/auth'
+import MaterialsPage from './pages/MaterialsPage'
+import ProductDetailPage from './pages/ProductDetailPage'
+import ProductsPage from './pages/ProductsPage'
+import SuppliersPage from './pages/SuppliersPage'
+import UsersPage from './pages/UsersPage'
 import './App.css'
 
-function App() {
-  const [storedSession] = useState(() => getStoredSession())
-  const [session, setSession] = useState(storedSession)
-  const [checkingSession, setCheckingSession] = useState(
-    Boolean(storedSession?.token),
-  )
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
 
-  useEffect(() => {
-    if (!storedSession?.token) {
-      return
-    }
-
-    let active = true
-
-    fetchCurrentUser(storedSession.token)
-      .then((user) => {
-        if (!active) {
-          return
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
         }
+      >
+        <Route index element={<DashboardPage />} />
+        <Route path="customers" element={<CustomersPage />} />
+        <Route path="suppliers" element={<SuppliersPage />} />
+        <Route path="employees" element={<EmployeesPage />} />
+        <Route path="materials" element={<MaterialsPage />} />
+        <Route path="products" element={<ProductsPage />} />
+        <Route path="products/:productId" element={<ProductDetailPage />} />
+        <Route path="users" element={<UsersPage />} />
+      </Route>
 
-        const nextSession = { token: storedSession.token, user }
-        saveSession(nextSession)
-        setSession(nextSession)
-      })
-      .catch(() => {
-        if (!active) {
-          return
-        }
-
-        clearSession()
-        setSession(null)
-      })
-      .finally(() => {
-        if (active) {
-          setCheckingSession(false)
-        }
-      })
-
-    return () => {
-      active = false
-    }
-  }, [storedSession])
-
-  function handleAuthenticated(nextSession) {
-    saveSession(nextSession)
-    setSession(nextSession)
-  }
-
-  function handleLogout() {
-    clearSession()
-    setSession(null)
-  }
-
-  if (checkingSession) {
-    return (
-      <div className="session-loader">
-        <span className="spinner spinner--dark" />
-        <span>Memeriksa sesi...</span>
-      </div>
-    )
-  }
-
-  return session ? (
-    <WelcomePage session={session} onLogout={handleLogout} />
-  ) : (
-    <LoginPage onAuthenticated={handleAuthenticated} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
-
-export default App

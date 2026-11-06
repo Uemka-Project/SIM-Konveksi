@@ -7,7 +7,15 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || '/api/v1'
+).replace(/\/$/, '')
+
+let authToken = null
+
+export function setAuthToken(token) {
+  authToken = token
+}
 
 export async function apiRequest(path, { method = 'GET', body, token } = {}) {
   const headers = {
@@ -18,8 +26,10 @@ export async function apiRequest(path, { method = 'GET', body, token } = {}) {
     headers['Content-Type'] = 'application/json'
   }
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
+  const bearer = token ?? authToken
+
+  if (bearer) {
+    headers.Authorization = `Bearer ${bearer}`
   }
 
   let response

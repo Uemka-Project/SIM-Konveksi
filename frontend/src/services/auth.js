@@ -49,5 +49,9 @@ export async function login(credentials) {
 export async function fetchCurrentUser(token) {
   const response = await apiRequest('/auth/me', { token })
 
-  return response.data.user
+  return response.data
+}
+
+export async function logout(token) {
+  await apiRequest('/auth/logout', { method: 'POST', token })
 }

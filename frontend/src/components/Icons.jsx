@@ -111,3 +111,133 @@ export function LogoutIcon(props) {
     </IconBase>
   )
 }
+
+export function DashboardIcon(props) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="3" width="7" height="9" rx="1.5" />
+      <rect x="14" y="3" width="7" height="5" rx="1.5" />
+      <rect x="14" y="12" width="7" height="9" rx="1.5" />
+      <rect x="3" y="16" width="7" height="5" rx="1.5" />
+    </IconBase>
+  )
+}
+
+export function UsersIcon(props) {
+  return (
+    <IconBase {...props}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3 20c0-3 2.7-5 6-5s6 2 6 5" />
+      <path d="M16 5.2A3.2 3.2 0 0 1 16 11" />
+      <path d="M18 15c2 .7 3 2.3 3 5" />
+    </IconBase>
+  )
+}
+
+export function CustomerIcon(props) {
+  return (
+    <IconBase {...props}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" />
+    </IconBase>
+  )
+}
+
+export function SupplierIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M3 9.5 12 3l9 6.5V21H3V9.5Z" />
+      <path d="M8 21v-6h8v6" />
+      <path d="M8 9h8" />
+    </IconBase>
+  )
+}
+
+export function EmployeeIcon(props) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+      <path d="M3 12h18" />
+    </IconBase>
+  )
+}
+
+export function MaterialIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 7.5 12 3l8 4.5-8 4.5-8-4.5Z" />
+      <path d="M4 7.5V16l8 4.5 8-4.5V7.5" />
+      <path d="M12 12v8.5" />
+    </IconBase>
+  )
+}
+
+export function ProductIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M20.4 8.2 12 3.5 3.6 8.2" />
+      <path d="M20.4 8.2v7.6L12 20.5l-8.4-4.7V8.2" />
+      <path d="m3.6 8.2 8.4 4.7 8.4-4.7" />
+      <path d="M12 12.9v7.6" />
+    </IconBase>
+  )
+}
+
+export function PlusIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </IconBase>
+  )
+}
+
+export function SearchIcon(props) {
+  return (
+    <IconBase {...props}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4.5 4.5" />
+    </IconBase>
+  )
+}
+
+export function EditIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 20h4l10-10-4-4L4 16v4Z" />
+      <path d="m13.5 5.5 4 4" />
+    </IconBase>
+  )
+}
+
+export function TrashIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 7h16" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <path d="m6 7 1 13h10l1-13" />
+      <path d="M10 11v5M14 11v5" />
+    </IconBase>
+  )
+}
+
+export function ArrowLeftIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M19 12H5" />
+      <path d="m11 18-6-6 6-6" />
+    </IconBase>
+  )
+}
+
+export function AlertTriangleIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M12 3 2.8 20h18.4L12 3Z" />
+      <path d="M12 9v5" />
+      <path d="M12 17h.01" />
+    </IconBase>
+  )
+}
+

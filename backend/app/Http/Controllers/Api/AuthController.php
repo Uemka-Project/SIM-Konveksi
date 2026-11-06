@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
-use App\Support\ApiToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -13,80 +13,73 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
     /**
-     * Authenticate an administrator and issue an API token.
+     * Authenticate with a username or email and issue a Sanctum token.
      */
     public function login(LoginRequest $request): JsonResponse
     {
         $credentials = $request->validated();
+        $login = trim($credentials['login']);
 
         $user = User::with(['roles', 'employee'])
-            ->where('email', $credentials['email'])
+            ->where(function ($query) use ($login): void {
+                $query->where('username', $login)
+                    ->orWhere('email', $login);
+            })
             ->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password_hash)) {
             return response()->json([
-                'message' => 'Email atau password yang Anda masukkan salah.',
+                'message' => 'Username/email atau password yang Anda masukkan salah.',
             ], 401);
         }
 
         if (! $user->is_active) {
             return response()->json([
-                'message' => 'Akun ini sedang tidak aktif.',
+                'message' => 'Akun ini sedang tidak aktif. Hubungi pemilik untuk mengaktifkan kembali.',
             ], 403);
         }
 
-        if (! $user->isAdmin()) {
-            return response()->json([
-                'message' => 'Akun ini tidak memiliki akses sebagai Admin.',
-            ], 403);
-        }
+        $token = $user->createToken('spa');
 
         return response()->json([
             'message' => 'Login berhasil.',
             'data' => [
-                'token' => ApiToken::issue($user),
+                'token' => $token->plainTextToken,
                 'token_type' => 'Bearer',
-                'expires_in' => ApiToken::TTL_HOURS * 60 * 60,
-                'user' => $this->userPayload($user),
+                'user' => (new UserResource($user))->toArray($request),
             ],
         ]);
     }
 
     /**
-     * Return the currently authenticated administrator.
+     * Return the currently authenticated user with roles and permissions.
      */
     public function me(Request $request): JsonResponse
     {
         /** @var User $user */
         $user = $request->user();
+        $user->load(['roles', 'employee']);
 
         return response()->json([
-            'data' => [
-                'user' => $this->userPayload($user),
-            ],
+            'data' => (new UserResource($user))->toArray($request),
         ]);
     }
 
     /**
-     * Build the user payload returned to the frontend.
-     *
-     * @return array<string, mixed>
+     * Revoke the token used for the current request.
      */
-    private function userPayload(User $user): array
+    public function logout(Request $request): JsonResponse
     {
-        return [
-            'id' => $user->getKey(),
-            'name' => $user->employee?->name ?? $user->username,
-            'username' => $user->username,
-            'email' => $user->email,
-            'roles' => $user->roles
-                ->map(fn ($role) => [
-                    'id' => $role->getKey(),
-                    'name' => $role->role_name,
-                    'slug' => $role->role_name,
-                ])
-                ->values()
-                ->all(),
-        ];
+        /** @var User $user */
+        $user = $request->user();
+
+        $token = $user->currentAccessToken();
+
+        // Transient (session) tokens do not have a delete method.
+        if ($token && method_exists($token, 'delete')) {
+            $token->delete();
+        }
+
+        return response()->json(['message' => 'Logout berhasil.']);
     }
 }

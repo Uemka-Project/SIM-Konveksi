@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import AuthLayout from '../components/AuthLayout'
 import {
   AlertIcon,
@@ -9,16 +10,23 @@ import {
   MailIcon,
   ShieldIcon,
 } from '../components/Icons'
-import { login } from '../services/auth'
+import { useAuth } from '../context/useAuth'
 
-const DEMO_EMAIL = 'dewi@konveksisejahtera.test'
+const DEMO_LOGIN = 'owner'
 const DEMO_PASSWORD = 'Konveksi#2026'
 
-export default function LoginPage({ onAuthenticated }) {
-  const [form, setForm] = useState({ email: '', password: '' })
+export default function LoginPage() {
+  const { login, isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [form, setForm] = useState({ login: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />
+  }
 
   function handleChange(event) {
     const { name, value } = event.target
@@ -31,7 +39,7 @@ export default function LoginPage({ onAuthenticated }) {
   }
 
   function fillDemoAccount() {
-    setForm({ email: DEMO_EMAIL, password: DEMO_PASSWORD })
+    setForm({ login: DEMO_LOGIN, password: DEMO_PASSWORD })
     setError('')
   }
 
@@ -39,23 +47,23 @@ export default function LoginPage({ onAuthenticated }) {
     event.preventDefault()
     setError('')
 
-    if (!form.email.trim() || !form.password) {
-      setError('Email dan password wajib diisi.')
+    if (!form.login.trim() || !form.password) {
+      setError('Username/email dan password wajib diisi.')
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      const session = await login({
-        email: form.email.trim(),
+      await login({
+        login: form.login.trim(),
         password: form.password,
       })
 
-      onAuthenticated(session)
+      navigate(location.state?.from || '/', { replace: true })
     } catch (requestError) {
       const validationMessage =
-        requestError.errors?.email?.[0] || requestError.errors?.password?.[0]
+        requestError.errors?.login?.[0] || requestError.errors?.password?.[0]
 
       setError(
         validationMessage ||
@@ -71,12 +79,13 @@ export default function LoginPage({ onAuthenticated }) {
       <section className="auth-card" aria-labelledby="login-heading">
         <span className="role-pill">
           <ShieldIcon size={14} />
-          Portal Admin
+          Portal Internal
         </span>
 
         <h2 id="login-heading">Masuk ke akun Anda</h2>
         <p className="auth-subtitle">
-          Gunakan akun Administrator untuk mengelola produksi konveksi.
+          Gunakan username atau email yang diberikan pemilik untuk mengelola
+          produksi konveksi.
         </p>
 
         {error && (
@@ -88,19 +97,19 @@ export default function LoginPage({ onAuthenticated }) {
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className="field">
-            <label className="field-label" htmlFor="email">
-              Email
+            <label className="field-label" htmlFor="login">
+              Username atau email
             </label>
             <div className="field-control">
               <MailIcon className="field-icon" size={18} />
               <input
-                id="email"
-                name="email"
-                type="email"
-                value={form.email}
+                id="login"
+                name="login"
+                type="text"
+                value={form.login}
                 onChange={handleChange}
-                placeholder="dewi@konveksisejahtera.test"
-                autoComplete="email"
+                placeholder="owner"
+                autoComplete="username"
                 autoFocus
                 required
               />
@@ -145,7 +154,7 @@ export default function LoginPage({ onAuthenticated }) {
               </>
             ) : (
               <>
-                Masuk sebagai Admin
+                Masuk
                 <ArrowRightIcon size={18} />
               </>
             )}
@@ -156,7 +165,7 @@ export default function LoginPage({ onAuthenticated }) {
           <div>
             <span className="demo-label">Akun demo</span>
             <span className="demo-value">
-              {DEMO_EMAIL} · {DEMO_PASSWORD}
+              {DEMO_LOGIN} · {DEMO_PASSWORD}
             </span>
           </div>
           <button type="button" onClick={fillDemoAccount}>
@@ -166,7 +175,7 @@ export default function LoginPage({ onAuthenticated }) {
 
         <p className="auth-note">
           <ShieldIcon size={14} />
-          Akses terbatas untuk pengguna dengan role Admin.
+          Hak akses setiap pengguna mengikuti peran yang diberikan pemilik.
         </p>
       </section>
     </AuthLayout>
