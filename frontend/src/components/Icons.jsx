@@ -184,6 +184,26 @@ export function ProductIcon(props) {
   )
 }
 
+export function OrderIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M6 3h9l4 4v14H6V3Z" />
+      <path d="M15 3v4h4" />
+      <path d="M9 12h6" />
+      <path d="M9 16h6" />
+    </IconBase>
+  )
+}
+
+export function WalletIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h12" />
+      <path d="M20 12h-4a2 2 0 0 0 0 4h4" />
+    </IconBase>
+  )
+}
+
 export function PlusIcon(props) {
   return (
     <IconBase {...props}>

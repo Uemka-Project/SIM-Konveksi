@@ -5,6 +5,7 @@ import {
   CustomerIcon,
   EmployeeIcon,
   MaterialIcon,
+  OrderIcon,
   ProductIcon,
   SupplierIcon,
 } from '../components/Icons'
@@ -17,6 +18,7 @@ const CARD_CONFIG = [
   { key: 'employees', label: 'Karyawan', icon: EmployeeIcon },
   { key: 'materials', label: 'Bahan Baku', icon: MaterialIcon },
   { key: 'products', label: 'Produk', icon: ProductIcon },
+  { key: 'orders', label: 'Pesanan', icon: OrderIcon },
 ]
 
 export default function DashboardPage() {
@@ -124,6 +126,9 @@ export default function DashboardPage() {
               <h3>Pesanan Terbaru</h3>
               <p>Data pesanan dibaca dari transaksi yang sudah ada.</p>
             </div>
+            <Link className="text-link" to="/orders">
+              Lihat pesanan
+            </Link>
           </div>
 
           {data.recent_orders.length === 0 ? (

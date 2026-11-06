@@ -7,6 +7,7 @@ import {
   GarmentIcon,
   LogoutIcon,
   MaterialIcon,
+  OrderIcon,
   ProductIcon,
   SupplierIcon,
   UsersIcon,
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { to: '/employees', label: 'Karyawan', icon: EmployeeIcon, module: 'employees' },
   { to: '/materials', label: 'Bahan Baku', icon: MaterialIcon, module: 'materials' },
   { to: '/products', label: 'Produk', icon: ProductIcon, module: 'products' },
+  { to: '/orders', label: 'Pesanan', icon: OrderIcon, module: 'orders' },
   { to: '/users', label: 'Pengguna', icon: UsersIcon, module: 'users' },
 ]
 
@@ -29,12 +31,22 @@ const PAGE_TITLES = {
   '/employees': 'Karyawan',
   '/materials': 'Bahan Baku',
   '/products': 'Produk & Varian',
+  '/orders': 'Pesanan',
+  '/orders/new': 'Buat Pesanan',
   '/users': 'Pengguna & Peran',
 }
 
 function pageTitle(pathname) {
   if (pathname.startsWith('/products/')) {
     return 'Detail Produk'
+  }
+
+  if (/^\/orders\/[^/]+\/edit$/.test(pathname)) {
+    return 'Ubah Pesanan'
+  }
+
+  if (/^\/orders\/[^/]+$/.test(pathname)) {
+    return 'Detail Pesanan'
   }
 
   return PAGE_TITLES[pathname] || 'SIM Konveksi'
@@ -87,7 +99,7 @@ export default function AppShell() {
 
         <div className="app-sidebar-footer">
           <p className="app-sidebar-note">
-            Fase 2 · Autentikasi &amp; Data Master
+            Fase 3 · Pesanan &amp; Pembayaran
           </p>
           <button type="button" className="app-logout" onClick={logout}>
             <LogoutIcon size={17} />

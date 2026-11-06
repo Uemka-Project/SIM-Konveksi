@@ -12,7 +12,11 @@ class OrderResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $paid = (float) ($this->payments_sum_amount ?? $this->paid_amount ?? 0);
+        $paid = (float) ($this->payments_sum_amount
+            ?? ($this->relationLoaded('payments')
+                ? $this->payments->sum('amount')
+                : $this->payments()->sum('amount')));
+        $total = (float) $this->total_amount;
 
         return [
             'order_id' => $this->order_id,
@@ -24,9 +28,11 @@ class OrderResource extends JsonResource
             'order_date' => $this->order_date?->format('Y-m-d'),
             'due_date' => $this->due_date?->format('Y-m-d'),
             'status' => $this->status,
-            'total_amount' => (float) $this->total_amount,
-            'paid_amount' => $paid,
-            'remaining_amount' => max(0, (float) $this->total_amount - $paid),
+            'details_count' => $this->whenCounted('details'),
+            'total_amount' => $total,
+            'paid_amount' => round($paid, 2),
+            'remaining_amount' => max(0, round($total - $paid, 2)),
+            'is_paid' => $paid + 0.001 >= $total,
             'is_overdue' => $this->due_date !== null
                 && $this->status !== 'Selesai'
                 && $this->status !== 'Dibatalkan'

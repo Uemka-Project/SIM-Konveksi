@@ -8,10 +8,41 @@ use App\Http\Resources\ProductVariantResource;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProductVariantController extends Controller
 {
+    /**
+     * Flat variant list used by order forms.
+     */
+    public function options(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', ProductVariant::class);
+
+        $variants = ProductVariant::query()
+            ->with('product')
+            ->when($request->filled('search'), function ($query) use ($request): void {
+                $term = '%'.trim((string) $request->query('search')).'%';
+
+                $query->where(function ($query) use ($term): void {
+                    $query->where('sku', 'like', $term)
+                        ->orWhere('size', 'like', $term)
+                        ->orWhere('color', 'like', $term)
+                        ->orWhereHas('product', function ($query) use ($term): void {
+                            $query->where('product_name', 'like', $term);
+                        });
+                });
+            })
+            ->orderBy('sku')
+            ->limit(500)
+            ->get();
+
+        return response()->json([
+            'data' => ProductVariantResource::collection($variants)->toArray($request),
+        ]);
+    }
+
     public function index(Product $product): JsonResponse
     {
         $this->authorize('viewAny', ProductVariant::class);
