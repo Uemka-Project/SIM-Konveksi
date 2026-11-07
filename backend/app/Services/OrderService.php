@@ -10,18 +10,6 @@ use Illuminate\Support\Facades\DB;
 class OrderService
 {
     /**
-     * Allowed status transitions (FR-O2).
-     *
-     * @var array<string, list<string>>
-     */
-    private const TRANSITIONS = [
-        'Baru' => ['Diproses', 'Dibatalkan'],
-        'Diproses' => ['Selesai', 'Dibatalkan'],
-        'Selesai' => [],
-        'Dibatalkan' => [],
-    ];
-
-    /**
      * Create an order and its items. Subtotal and total are calculated here,
      * never trusted from the client (FR-O1).
      *
@@ -114,25 +102,27 @@ class OrderService
     }
 
     /**
-     * Apply a status transition, enforcing the FR-O2 state machine.
+     * Cancel an order (FR-O2). Cancellation is only allowed before any
+     * production order exists and while the order is not final yet.
      */
-    public function changeStatus(Order $order, string $status): Order
+    public function cancel(Order $order): Order
     {
-        return DB::transaction(function () use ($order, $status): Order {
+        return DB::transaction(function () use ($order): Order {
             $order = $this->lockOrder($order);
 
-            $allowed = self::TRANSITIONS[$order->status] ?? [];
+            if (! in_array($order->status, ['Baru', 'Diproses'], true)) {
+                $message = "Pesanan berstatus {$order->status} tidak dapat dibatalkan.";
 
-            if (! in_array($status, $allowed, true)) {
-                throw new BusinessRuleException(
-                    "Status pesanan tidak dapat diubah dari {$order->status} ke {$status}.",
-                    ['status' => [
-                        "Status pesanan tidak dapat diubah dari {$order->status} ke {$status}.",
-                    ]],
-                );
+                throw new BusinessRuleException($message, ['status' => [$message]]);
             }
 
-            $order->update(['status' => $status]);
+            if ($order->productionOrders()->exists()) {
+                $message = 'Pesanan tidak dapat dibatalkan karena sudah memiliki perintah produksi.';
+
+                throw new BusinessRuleException($message, ['status' => [$message]]);
+            }
+
+            $order->update(['status' => 'Dibatalkan']);
 
             return $order;
         });
@@ -154,6 +144,14 @@ class OrderService
                 );
             }
 
+            $hasPayments = $order->payments()->exists();
+
+            if (! $hasPayments && ($attributes['payment_type'] ?? null) !== 'DP') {
+                $message = 'Pembayaran pertama harus berjenis DP.';
+
+                throw new BusinessRuleException($message, ['payment_type' => [$message]]);
+            }
+
             $remaining = max(0, (float) $order->total_amount - $this->paidAmount($order));
             $amount = round((float) $attributes['amount'], 2);
 
@@ -164,13 +162,20 @@ class OrderService
                 throw new BusinessRuleException($message, ['amount' => [$message]]);
             }
 
-            return $order->payments()->create([
+            $payment = $order->payments()->create([
                 'payment_date' => $attributes['payment_date'],
                 'amount' => $amount,
                 'payment_method' => $attributes['payment_method'],
                 'payment_type' => $attributes['payment_type'],
                 'notes' => $attributes['notes'] ?? null,
             ]);
+
+            // FR-O2: the first DP moves a new order into "Diproses".
+            if (! $hasPayments && $order->status === 'Baru') {
+                $order->update(['status' => 'Diproses']);
+            }
+
+            return $payment;
         });
     }
 

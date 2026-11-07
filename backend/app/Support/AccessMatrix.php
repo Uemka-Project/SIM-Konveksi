@@ -17,18 +17,18 @@ final class AccessMatrix
      */
     public const MATRIX = [
         'customers' => ['owner' => 'CRUD', 'admin' => 'CRUD', 'produksi' => 'R'],
-        'suppliers' => ['owner' => 'CRUD', 'admin' => 'R', 'gudang' => 'CRUD'],
+        'suppliers' => ['owner' => 'CRUD', 'admin' => 'CRUD', 'gudang' => 'R'],
         'employees' => ['owner' => 'CRUD', 'admin' => 'R', 'produksi' => 'R'],
         'materials' => ['owner' => 'CRUD', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'CRU'],
         'products' => ['owner' => 'CRUD', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'R'],
         'variants' => ['owner' => 'CRUD', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'R'],
         'bom' => ['owner' => 'CRUD', 'admin' => 'R', 'produksi' => 'CRU', 'gudang' => 'R'],
         'users' => ['owner' => 'CRUD'],
-        'orders' => ['owner' => 'CRUD', 'admin' => 'CRU', 'produksi' => 'R'],
+        'orders' => ['owner' => 'CRUD', 'admin' => 'CRU', 'produksi' => 'R', 'gudang' => 'R'],
         'payments' => ['owner' => 'CRUD', 'admin' => 'CR'],
-        'purchases' => ['owner' => 'CRUD', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'CRU'],
-        'production' => ['owner' => 'CRUD', 'admin' => 'R', 'produksi' => 'CRU', 'gudang' => 'R'],
-        'stock' => ['owner' => 'R', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'R'],
+        'purchases' => ['owner' => 'CRUD', 'admin' => 'CRU', 'gudang' => 'RU'],
+        'production' => ['owner' => 'CRUD', 'admin' => 'CRU', 'produksi' => 'RU', 'gudang' => 'RU'],
+        'stock' => ['owner' => 'R', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'CR'],
         'reports' => ['owner' => 'R', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'R'],
     ];
 

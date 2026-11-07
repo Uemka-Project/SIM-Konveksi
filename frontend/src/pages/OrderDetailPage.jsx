@@ -20,19 +20,6 @@ const STATUS_BADGE = {
   Dibatalkan: 'badge badge--danger',
 }
 
-const TRANSITIONS = {
-  Baru: [
-    { status: 'Diproses', label: 'Proses pesanan', variant: 'primary' },
-    { status: 'Dibatalkan', label: 'Batalkan', variant: 'ghost' },
-  ],
-  Diproses: [
-    { status: 'Selesai', label: 'Selesaikan', variant: 'primary' },
-    { status: 'Dibatalkan', label: 'Batalkan', variant: 'ghost' },
-  ],
-  Selesai: [],
-  Dibatalkan: [],
-}
-
 function today() {
   const date = new Date()
   const pad = (value) => String(value).padStart(2, '0')
@@ -96,12 +83,9 @@ export default function OrderDetailPage() {
     )
   }
 
-  const statusMutation = useMutation({
-    mutationFn: (status) =>
-      apiRequest(`/orders/${orderId}/status`, {
-        method: 'POST',
-        body: { status },
-      }),
+  const cancelOrderMutation = useMutation({
+    mutationFn: () =>
+      apiRequest(`/orders/${orderId}/cancel`, { method: 'POST' }),
     onSuccess: (response) => {
       invalidateOrder()
       setError('')
@@ -167,6 +151,11 @@ export default function OrderDetailPage() {
   const canDelete = can('orders', 'D') && order.status === 'Baru'
   const canPay = can('payments', 'C')
   const isCancelled = order.status === 'Dibatalkan'
+  const isFirstPayment = payments.length === 0
+  const canCancel =
+    can('orders', 'U') &&
+    ['Baru', 'Diproses'].includes(order.status) &&
+    productionOrders.length === 0
 
   function openPayment() {
     setPaymentForm(emptyPayment(order))
@@ -174,15 +163,16 @@ export default function OrderDetailPage() {
     setPaymentOpen(true)
   }
 
-  function changeStatus(status) {
+  function handleCancelOrder() {
     if (
-      status === 'Dibatalkan' &&
-      !window.confirm('Batalkan pesanan ini? Status tidak dapat dikembalikan.')
+      !window.confirm(
+        'Batalkan pesanan ini? Pembatalan hanya dapat dilakukan sebelum produksi dimulai dan status tidak dapat dikembalikan.',
+      )
     ) {
       return
     }
 
-    statusMutation.mutate(status)
+    cancelOrderMutation.mutate()
   }
 
   function handleDeleteOrder() {
@@ -210,7 +200,7 @@ export default function OrderDetailPage() {
       payment_date: paymentForm.payment_date,
       amount: Number(paymentForm.amount),
       payment_method: paymentForm.payment_method,
-      payment_type: paymentForm.payment_type,
+      payment_type: isFirstPayment ? 'DP' : paymentForm.payment_type,
       notes: paymentForm.notes || null,
     })
   }
@@ -367,8 +357,9 @@ export default function OrderDetailPage() {
             <div>
               <h3>Status Pesanan</h3>
               <p>
-                Alur: Baru → Diproses → Selesai. Pesanan dapat dibatalkan selama
-                belum selesai.
+                Status berubah otomatis: Baru → Diproses saat DP pertama dicatat,
+                lalu Selesai setelah produk diserahkan. Pembatalan hanya dapat
+                dilakukan sebelum perintah produksi dibuat.
               </p>
             </div>
           </div>
@@ -378,29 +369,22 @@ export default function OrderDetailPage() {
               {order.status}
             </span>
 
-            {can('orders', 'U') && TRANSITIONS[order.status]?.length > 0 ? (
-              <div className="row-actions">
-                {TRANSITIONS[order.status].map((transition) => (
-                  <button
-                    key={transition.status}
-                    type="button"
-                    className={`button ${
-                      transition.variant === 'primary'
-                        ? 'button--primary'
-                        : 'button--ghost'
-                    } button--small`}
-                    onClick={() => changeStatus(transition.status)}
-                    disabled={statusMutation.isPending}
-                  >
-                    {transition.label}
-                  </button>
-                ))}
-              </div>
+            {canCancel ? (
+              <button
+                type="button"
+                className="button button--ghost button--small"
+                onClick={handleCancelOrder}
+                disabled={cancelOrderMutation.isPending}
+              >
+                Batalkan pesanan
+              </button>
             ) : (
               <span className="muted-text">
                 {order.status === 'Selesai' || order.status === 'Dibatalkan'
                   ? 'Status akhir, tidak ada perubahan lebih lanjut.'
-                  : 'Anda tidak memiliki hak mengubah status.'}
+                  : productionOrders.length > 0
+                    ? 'Pesanan sudah memiliki perintah produksi, pembatalan tidak tersedia.'
+                    : 'Anda tidak memiliki hak membatalkan pesanan.'}
               </span>
             )}
           </div>
@@ -471,8 +455,8 @@ export default function OrderDetailPage() {
             <div>
               <h3>Pembayaran</h3>
               <p>
-                DP, cicilan, dan pelunasan. Total pembayaran tidak dapat melebihi
-                total pesanan.
+                DP, cicilan, dan pelunasan. Pembayaran pertama wajib DP; total
+                pembayaran tidak dapat melebihi total pesanan.
               </p>
             </div>
 
@@ -681,16 +665,29 @@ export default function OrderDetailPage() {
                   </label>
                   <select
                     id="payment-type"
-                    value={paymentForm.payment_type}
+                    value={isFirstPayment ? 'DP' : paymentForm.payment_type}
                     onChange={(event) =>
                       updatePaymentField('payment_type', event.target.value)
                     }
+                    disabled={isFirstPayment}
                     required
                   >
-                    <option value="DP">DP</option>
-                    <option value="Cicilan">Cicilan</option>
-                    <option value="Pelunasan">Pelunasan</option>
+                    {isFirstPayment ? (
+                      <option value="DP">DP</option>
+                    ) : (
+                      <>
+                        <option value="DP">DP</option>
+                        <option value="Cicilan">Cicilan</option>
+                        <option value="Pelunasan">Pelunasan</option>
+                      </>
+                    )}
                   </select>
+                  {isFirstPayment && (
+                    <small className="field-help">
+                      Pembayaran pertama wajib berjenis DP dan otomatis mengubah
+                      status pesanan menjadi Diproses.
+                    </small>
+                  )}
                 </div>
               </div>
 

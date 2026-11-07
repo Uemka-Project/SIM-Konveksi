@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Order\OrderRequest;
-use App\Http\Requests\Order\OrderStatusRequest;
 use App\Http\Resources\OrderDetailResource;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
@@ -90,14 +89,14 @@ class OrderController extends Controller
         return response()->json(['message' => 'Pesanan berhasil dihapus.']);
     }
 
-    public function status(OrderStatusRequest $request, Order $order): JsonResponse
+    public function cancel(Order $order): JsonResponse
     {
         $this->authorize('update', $order);
 
-        $order = $this->orders->changeStatus($order, $request->validated()['status']);
+        $order = $this->orders->cancel($order);
 
         return response()->json([
-            'message' => 'Status pesanan berhasil diperbarui.',
+            'message' => 'Pesanan berhasil dibatalkan.',
             'data' => new OrderDetailResource($this->loadOrder($order)),
         ]);
     }

@@ -46,7 +46,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('variants/{variant}/bom', [BomController::class, 'show'])->name('bom.show');
     Route::put('variants/{variant}/bom', [BomController::class, 'update'])->name('bom.update');
 
-    Route::post('orders/{order}/status', [OrderController::class, 'status'])->name('orders.status');
+    Route::post('orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
     Route::get('orders/{order}/balance', [OrderController::class, 'balance'])->name('orders.balance');
     Route::get('orders/{order}/payments', [OrderPaymentController::class, 'index'])->name('orders.payments.index');
     Route::post('orders/{order}/payments', [OrderPaymentController::class, 'store'])->name('orders.payments.store');
