@@ -23,9 +23,11 @@ produksi; tag `v*.*.*` dipakai untuk rilis berversi. Versi diambil dari
 
 - `VITE_API_BASE_URL` — default `/api/v1`
 - `SQLSERVER_CONTAINER` — default `mssql_server`
-- `PROD_BACKEND_HOST_PORT` / `PROD_FRONTEND_HOST_PORT` — default `8000` / `8080`
-- `PROD_BACKEND_ENV_FILE` — default `/opt/konveksi/backend.env`
-- `PROD_PREV_ENV_FILE` — default `/opt/konveksi/previous.env`
+- `DOCKER_NETWORK_SUBNET` — subnet cadangan bila pembuatan network default gagal
+  karena pool alamat Docker habis; default `10.250.0.0/24`
+- `PROD_BACKEND_HOST_PORT` / `PROD_FRONTEND_HOST_PORT` — default `8082` / `5270`
+- `PROD_BACKEND_ENV_FILE` — default `/home/lynx/Projects/konveksi/config/backend.env`
+- `PROD_PREV_ENV_FILE` — default `/home/lynx/Projects/konveksi/config/previous.env`
 - `RUN_MIGRATIONS` — default `true`
 
 ## Catatan deploy
@@ -39,3 +41,8 @@ produksi; tag `v*.*.*` dipakai untuk rilis berversi. Versi diambil dari
 - Migrasi dijalankan lewat `docker exec <backend> php artisan migrate --force`.
 - Jika container gagal running setelah deploy, workflow mencoba rollback ke
   image sebelumnya yang disimpan di `previous.env`.
+- Jika pembuatan network gagal, log sekarang menampilkan pesan asli Docker.
+  Workflow mencoba sekali lagi dengan `DOCKER_NETWORK_SUBNET` bila alokasi
+  subnet default habis. Kalau tetap gagal, workflow memakai network
+  user-defined yang sudah dipakai container SQL Server (mis. network Compose);
+  network `bridge` bawaan tidak dipakai karena tidak punya DNS container.

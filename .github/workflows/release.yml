@@ -212,6 +212,7 @@ jobs:
           BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ needs.version.outputs.owner_lc }}/konveksi-backend:v${{ needs.version.outputs.version }}
           FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ needs.version.outputs.owner_lc }}/konveksi-frontend:v${{ needs.version.outputs.version }}
           NETWORK: konveksi-net
+          NETWORK_SUBNET: ${{ vars.DOCKER_NETWORK_SUBNET || '10.250.0.0/24' }}
           BACKEND_CONTAINER: konveksi-backend
           FRONTEND_CONTAINER: konveksi-frontend
           SQLSERVER_CONTAINER: ${{ vars.SQLSERVER_CONTAINER || 'mssql_server' }}
@@ -228,7 +229,7 @@ jobs:
           port: ${{ secrets.SSH_PORT_PROD }}
           key: ${{ secrets.SSH_KEY_PROD }}
           script_stop: true
-          envs: REGISTRY,OWNER_LC,APP_VERSION,BACKEND_IMAGE,FRONTEND_IMAGE,NETWORK,BACKEND_CONTAINER,FRONTEND_CONTAINER,SQLSERVER_CONTAINER,BACKEND_HOST_PORT,FRONTEND_HOST_PORT,BACKEND_ENV_FILE,PREV_ENV_FILE,RUN_MIGRATIONS,GHCR_USERNAME,GHCR_TOKEN
+          envs: REGISTRY,OWNER_LC,APP_VERSION,BACKEND_IMAGE,FRONTEND_IMAGE,NETWORK,NETWORK_SUBNET,BACKEND_CONTAINER,FRONTEND_CONTAINER,SQLSERVER_CONTAINER,BACKEND_HOST_PORT,FRONTEND_HOST_PORT,BACKEND_ENV_FILE,PREV_ENV_FILE,RUN_MIGRATIONS,GHCR_USERNAME,GHCR_TOKEN
           script: |
             set -eo pipefail
 
@@ -238,7 +239,7 @@ jobs:
             echo "========== KONVEKSI DEPLOY v${APP_VERSION} =========="
             echo "Backend  : ${BACKEND_IMAGE} -> 127.0.0.1:${BACKEND_HOST_PORT} (loopback only; nginx = ingress)"
             echo "Frontend : ${FRONTEND_IMAGE} -> :${FRONTEND_HOST_PORT}"
-            echo "Network  : ${NETWORK}"
+            echo "Network  : ${NETWORK} (fallback subnet: ${NETWORK_SUBNET})"
             echo "SQL Srv  : ${SQLSERVER_CONTAINER}"
             echo "Env file : ${BACKEND_ENV_FILE}"
             echo ""
@@ -269,14 +270,79 @@ jobs:
 
             echo ""
             echo "[5/8] Ensure docker network & SQL Server..."
-            docker network inspect "${NETWORK}" &>/dev/null || docker network create "${NETWORK}"
 
-            if docker ps -a --format '{{.Names}}' | grep -q "^${SQLSERVER_CONTAINER}$"; then
-              docker network connect "${NETWORK}" "${SQLSERVER_CONTAINER}" 2>/dev/null || true
-              echo "  ${SQLSERVER_CONTAINER} connected to ${NETWORK}"
-            else
-              echo "  WARNING: container SQL Server '${SQLSERVER_CONTAINER}' tidak ditemukan"
+            # Buat network bila belum ada. Jangan sembunyikan stderr: kegagalan
+            # di sini sebelumnya tidak terlihat karena output Docker dibuang.
+            # Percobaan pertama memakai alokasi default; kalau pool subnet
+            # Docker di server sudah habis, coba lagi dengan subnet eksplisit.
+            ensure_network() {
+              if docker network inspect "${NETWORK}" >/dev/null 2>&1; then
+                echo "  Network ${NETWORK} sudah ada."
+                return 0
+              fi
+
+              echo "  Network ${NETWORK} belum ada; membuat..."
+              if docker network create "${NETWORK}"; then
+                echo "  Network ${NETWORK} dibuat."
+                return 0
+              fi
+
+              echo "  Percobaan pertama gagal. Mencoba subnet eksplisit ${NETWORK_SUBNET}..."
+              if docker network create --subnet "${NETWORK_SUBNET}" "${NETWORK}"; then
+                echo "  Network ${NETWORK} dibuat dengan subnet ${NETWORK_SUBNET}."
+                return 0
+              fi
+
+              echo "  Gagal membuat network ${NETWORK}."
+              return 1
+            }
+
+            connect_sqlserver() {
+              if ! docker ps -a --format '{{.Names}}' | grep -q "^${SQLSERVER_CONTAINER}$"; then
+                echo "  WARNING: container SQL Server '${SQLSERVER_CONTAINER}' tidak ditemukan"
+                return 0
+              fi
+
+              if docker network inspect "${NETWORK}" \
+                  --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null \
+                  | grep -qw "${SQLSERVER_CONTAINER}"; then
+                echo "  ${SQLSERVER_CONTAINER} sudah terhubung ke ${NETWORK}."
+                return 0
+              fi
+
+              echo "  Menghubungkan ${SQLSERVER_CONTAINER} ke ${NETWORK}..."
+              if docker network connect "${NETWORK}" "${SQLSERVER_CONTAINER}"; then
+                echo "  ${SQLSERVER_CONTAINER} terhubung ke ${NETWORK}."
+                return 0
+              fi
+
+              echo "ERROR: gagal menghubungkan ${SQLSERVER_CONTAINER} ke ${NETWORK}."
+              return 1
+            }
+
+            if ! ensure_network; then
+              # Kalau Docker tidak bisa mengalokasikan subnet baru, pakai network
+              # user-defined yang sudah dipakai SQL Server (mis. network compose).
+              # Network default `bridge` tidak dipakai karena tidak punya DNS
+              # internal untuk resolusi nama container.
+              echo "  Mencari network alternatif dari ${SQLSERVER_CONTAINER}..."
+              ALT_NET=$(docker inspect \
+                --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' \
+                "${SQLSERVER_CONTAINER}" 2>/dev/null \
+                | tr ' ' '\n' \
+                | grep -vE '^(|bridge|host|none)$' \
+                | head -n1 || true)
+
+              if [ -n "${ALT_NET}" ]; then
+                NETWORK="${ALT_NET}"
+                echo "  Memakai network yang sudah ada: ${NETWORK}"
+              else
+                echo "ERROR: tidak ada network alternatif. Deploy dihentikan."
+                exit 1
+              fi
             fi
+
+            connect_sqlserver
 
             echo ""
             echo "[6/8] Recreate containers..."
