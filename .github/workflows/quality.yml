@@ -7,8 +7,8 @@ name: quality
 # Frontend: ESLint + build Vite.
 #
 # Workflow ini sengaja ringan dan tidak membutuhkan SQL Server. Gerbang
-# staging/produksi ada di `ci.yml` dan `release.yml` (build image Docker,
-# push ke GHCR, deploy lewat SSH).
+# produksi ada di `release.yml` (build image Docker, push ke GHCR, deploy
+# lewat SSH).
 # =============================================================================
 
 on:
