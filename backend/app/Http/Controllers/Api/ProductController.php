@@ -46,7 +46,10 @@ class ProductController extends Controller
     {
         $this->authorize('view', $product);
 
-        $product->load(['variants' => fn ($query) => $query->withCount('orderDetails')->orderBy('size')])
+        $product->load(['variants' => fn ($query) => $query
+            ->with('materials')
+            ->withCount('orderDetails')
+            ->orderBy('size')])
             ->loadCount('variants');
 
         return response()->json(['data' => new ProductResource($product)]);
