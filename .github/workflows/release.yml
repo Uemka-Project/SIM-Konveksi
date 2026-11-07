@@ -1,0 +1,342 @@
+name: release
+
+# =============================================================================
+# PRODUKSI — tag `v*.*.*`, push ke branch `prod`, atau manual.
+#
+# 1. Resolve versi (tag menang; kalau bukan tag, pakai ./VERSION).
+# 2. Build & push image prod ke GHCR (:prod, :latest, :vX.Y.Z, :X.Y, :sha).
+# 3. Deploy ke server produksi lewat SSH, jalankan migrasi, health check.
+#
+# Jika VERSION dinaikkan di branch `prod`, workflow membuat git tag + release
+# otomatis. Deploy hanya berjalan untuk branch `prod`, tag `v*.*.*`, atau
+# workflow_dispatch (kecuali skip_deploy=true).
+# =============================================================================
+
+on:
+  push:
+    branches: [prod]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      component:
+        description: 'Which image to build'
+        type: choice
+        default: both
+        options: [both, backend, frontend]
+      skip_deploy:
+        description: 'Skip SSH deploy step'
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # untuk auto-tagging ketika VERSION berubah
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Resolve the release version once, so all downstream jobs agree on it.
+  # Source of truth = ./VERSION file at repo root.
+  # If the current commit is a tag push (vX.Y.Z), use the tag; otherwise VERSION.
+  # ---------------------------------------------------------------------------
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      version_changed: ${{ steps.v.outputs.changed }}
+      owner_lc: ${{ steps.v.outputs.owner_lc }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # perlu commit sebelumnya untuk deteksi perubahan VERSION
+          persist-credentials: true
+
+      - name: Resolve version + detect change
+        id: v
+        run: |
+          set -eo pipefail
+          OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          echo "owner_lc=${OWNER_LC}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "changed=false"      >> "$GITHUB_OUTPUT"
+            echo "Version from git tag: ${VERSION}"
+            exit 0
+          fi
+
+          if [ ! -f VERSION ]; then
+            echo "VERSION file missing"; exit 1
+          fi
+          VERSION=$(tr -d '[:space:]' < VERSION)
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Invalid semver in VERSION: '$VERSION'"; exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          # Detect if VERSION file changed vs previous commit
+          if git rev-parse HEAD~1 &>/dev/null && \
+             ! git diff --quiet HEAD~1 HEAD -- VERSION; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "VERSION changed to ${VERSION}"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "VERSION unchanged (${VERSION})"
+          fi
+
+      - name: Create git tag when VERSION bumped
+        if: steps.v.outputs.changed == 'true' && github.ref == 'refs/heads/prod'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          TAG="v${{ steps.v.outputs.version }}"
+          if git rev-parse "$TAG" &>/dev/null; then
+            echo "Tag $TAG already exists, skipping"; exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes || true
+
+  # ---------------------------------------------------------------------------
+  # Build & push images. Tagged with :prod, :latest, :vX.Y.Z, :X.Y, :sha-...
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build & push ${{ matrix.component }}
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: backend
+            context: ./backend
+            image: konveksi-backend
+          - component: frontend
+            context: ./frontend
+            image: konveksi-frontend
+    steps:
+      - name: Skip if component filter excludes this one
+        id: filter
+        run: |
+          want='${{ github.event.inputs.component }}'
+          if [ -n "$want" ] && [ "$want" != "both" ] && [ "$want" != "${{ matrix.component }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.filter.outputs.skip == 'false'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Buildx
+        if: steps.filter.outputs.skip == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: steps.filter.outputs.skip == 'false'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image metadata
+        if: steps.filter.outputs.skip == 'false'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ needs.version.outputs.owner_lc }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=prod,enable=${{ github.ref == 'refs/heads/prod' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' }}
+            type=raw,value=v${{ needs.version.outputs.version }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+
+      - name: Build & push
+        if: steps.filter.outputs.skip == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ needs.version.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || '/api/v1' }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+          provenance: false
+
+  # ---------------------------------------------------------------------------
+  # Deploy produksi over SSH.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy over SSH
+    needs: [version, build]
+    if: ${{ (github.ref == 'refs/heads/prod' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') && github.event.inputs.skip_deploy != 'true' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: prod-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          OWNER_LC: ${{ needs.version.outputs.owner_lc }}
+          APP_VERSION: ${{ needs.version.outputs.version }}
+          BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ needs.version.outputs.owner_lc }}/konveksi-backend:v${{ needs.version.outputs.version }}
+          FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ needs.version.outputs.owner_lc }}/konveksi-frontend:v${{ needs.version.outputs.version }}
+          NETWORK: konveksi-net
+          BACKEND_CONTAINER: konveksi-backend
+          FRONTEND_CONTAINER: konveksi-frontend
+          SQLSERVER_CONTAINER: ${{ vars.SQLSERVER_CONTAINER || 'mssql_server' }}
+          BACKEND_HOST_PORT: ${{ vars.PROD_BACKEND_HOST_PORT || '8000' }}
+          FRONTEND_HOST_PORT: ${{ vars.PROD_FRONTEND_HOST_PORT || '8080' }}
+          BACKEND_ENV_FILE: ${{ vars.PROD_BACKEND_ENV_FILE || '/opt/konveksi/backend.env' }}
+          PREV_ENV_FILE: ${{ vars.PROD_PREV_ENV_FILE || '/opt/konveksi/previous.env' }}
+          RUN_MIGRATIONS: ${{ vars.RUN_MIGRATIONS || 'true' }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        with:
+          host: ${{ secrets.SSH_HOST_PROD }}
+          username: ${{ secrets.SSH_USER_PROD }}
+          port: ${{ secrets.SSH_PORT_PROD }}
+          key: ${{ secrets.SSH_KEY_PROD }}
+          script_stop: true
+          envs: REGISTRY,OWNER_LC,APP_VERSION,BACKEND_IMAGE,FRONTEND_IMAGE,NETWORK,BACKEND_CONTAINER,FRONTEND_CONTAINER,SQLSERVER_CONTAINER,BACKEND_HOST_PORT,FRONTEND_HOST_PORT,BACKEND_ENV_FILE,PREV_ENV_FILE,RUN_MIGRATIONS,GHCR_USERNAME,GHCR_TOKEN
+          script: |
+            set -eo pipefail
+
+            BACKEND_ENV_FILE="${BACKEND_ENV_FILE/#\~/$HOME}"
+            PREV_ENV_FILE="${PREV_ENV_FILE/#\~/$HOME}"
+
+            echo "========== KONVEKSI DEPLOY v${APP_VERSION} =========="
+            echo "Backend  : ${BACKEND_IMAGE} -> 127.0.0.1:${BACKEND_HOST_PORT} (loopback only; nginx = ingress)"
+            echo "Frontend : ${FRONTEND_IMAGE} -> :${FRONTEND_HOST_PORT}"
+            echo "Network  : ${NETWORK}"
+            echo "SQL Srv  : ${SQLSERVER_CONTAINER}"
+            echo "Env file : ${BACKEND_ENV_FILE}"
+            echo ""
+
+            echo "[1/8] Login GHCR..."
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+
+            echo ""
+            echo "[2/8] Verifikasi env-file backend..."
+            if [ ! -f "${BACKEND_ENV_FILE}" ]; then
+              echo "ERROR: ${BACKEND_ENV_FILE} tidak ditemukan di server."
+              exit 1
+            fi
+
+            echo ""
+            echo "[3/8] Pull image v${APP_VERSION}..."
+            docker pull "${BACKEND_IMAGE}"
+            docker pull "${FRONTEND_IMAGE}"
+
+            echo ""
+            echo "[4/8] Simpan versi yang saat ini berjalan (untuk rollback)..."
+            PREV_BACKEND=$(docker inspect --format '{{.Config.Image}}' "${BACKEND_CONTAINER}" 2>/dev/null || echo "")
+            PREV_FRONTEND=$(docker inspect --format '{{.Config.Image}}' "${FRONTEND_CONTAINER}" 2>/dev/null || echo "")
+            echo "  previous backend : ${PREV_BACKEND:-<none>}"
+            echo "  previous frontend: ${PREV_FRONTEND:-<none>}"
+            mkdir -p "$(dirname "${PREV_ENV_FILE}")"
+            printf 'BACKEND=%s\nFRONTEND=%s\n' "${PREV_BACKEND}" "${PREV_FRONTEND}" > "${PREV_ENV_FILE}"
+
+            echo ""
+            echo "[5/8] Ensure docker network & SQL Server..."
+            docker network inspect "${NETWORK}" &>/dev/null || docker network create "${NETWORK}"
+
+            if docker ps -a --format '{{.Names}}' | grep -q "^${SQLSERVER_CONTAINER}$"; then
+              docker network connect "${NETWORK}" "${SQLSERVER_CONTAINER}" 2>/dev/null || true
+              echo "  ${SQLSERVER_CONTAINER} connected to ${NETWORK}"
+            else
+              echo "  WARNING: container SQL Server '${SQLSERVER_CONTAINER}' tidak ditemukan"
+            fi
+
+            echo ""
+            echo "[6/8] Recreate containers..."
+            # Backend hanya bind ke 127.0.0.1; nginx (frontend) menjadi satu-satunya
+            # ingress publik. Port backend tetap bisa di-curl dari host untuk debug.
+            for c in "${BACKEND_CONTAINER}" "${FRONTEND_CONTAINER}"; do
+              if docker ps -a --format '{{.Names}}' | grep -q "^${c}$"; then
+                docker stop "$c" >/dev/null 2>&1 || true
+                docker rm   "$c" >/dev/null 2>&1 || true
+              fi
+            done
+
+            docker run -d --name "${BACKEND_CONTAINER}" \
+              --network "${NETWORK}" \
+              --restart unless-stopped \
+              --env-file "${BACKEND_ENV_FILE}" \
+              -e "APP_VERSION=${APP_VERSION}" \
+              -p "127.0.0.1:${BACKEND_HOST_PORT}:8000" \
+              "${BACKEND_IMAGE}"
+
+            if [ "${RUN_MIGRATIONS}" = "true" ]; then
+              sleep 3
+              docker exec "${BACKEND_CONTAINER}" php artisan migrate --force
+              docker exec "${BACKEND_CONTAINER}" php artisan config:cache || true
+              docker exec "${BACKEND_CONTAINER}" php artisan route:cache  || true
+            fi
+
+            docker run -d --name "${FRONTEND_CONTAINER}" \
+              --network "${NETWORK}" \
+              --restart unless-stopped \
+              -e "BACKEND_UPSTREAM=${BACKEND_CONTAINER}:8000" \
+              -p "${FRONTEND_HOST_PORT}:80" \
+              "${FRONTEND_IMAGE}"
+
+            echo ""
+            echo "[7/8] Health check..."
+            sleep 2
+            for c in "${BACKEND_CONTAINER}" "${FRONTEND_CONTAINER}"; do
+              if ! docker ps --format '{{.Names}}' | grep -q "^${c}$"; then
+                echo "ERROR: $c tidak running — rolling back"
+                docker logs "$c" --tail 50 || true
+                if [ -f "${PREV_ENV_FILE}" ]; then
+                  . "${PREV_ENV_FILE}"
+                  echo "Rolling back backend->${BACKEND} frontend->${FRONTEND}"
+                  docker rm -f "${BACKEND_CONTAINER}" "${FRONTEND_CONTAINER}" 2>/dev/null || true
+                  [ -n "${BACKEND}" ] && docker run -d --name "${BACKEND_CONTAINER}" \
+                    --network "${NETWORK}" --restart unless-stopped \
+                    --env-file "${BACKEND_ENV_FILE}" \
+                    -p "127.0.0.1:${BACKEND_HOST_PORT}:8000" "${BACKEND}"
+                  [ -n "${FRONTEND}" ] && docker run -d --name "${FRONTEND_CONTAINER}" \
+                    --network "${NETWORK}" --restart unless-stopped \
+                    -e "BACKEND_UPSTREAM=${BACKEND_CONTAINER}:8000" \
+                    -p "${FRONTEND_HOST_PORT}:80" "${FRONTEND}"
+                fi
+                exit 1
+              fi
+            done
+
+            docker ps --filter "name=konveksi-" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+
+            echo ""
+            echo "[8/8] Housekeeping..."
+            docker image prune -f --filter "until=168h" >/dev/null 2>&1 || true
+
+            echo ""
+            echo "Deploy v${APP_VERSION} selesai."

@@ -1,0 +1,74 @@
+# =============================================================================
+# Nginx untuk SPA SIM Produksi Konveksi
+# =============================================================================
+# File ini adalah TEMPLATE. Direktori /etc/nginx/templates/ diproses oleh
+# entrypoint image nginx (20-envsubst-on-templates.sh) memakai envsubst, lalu
+# hasilnya ditulis ke /etc/nginx/conf.d/default.conf.
+#
+# Hanya variabel berprefix BACKEND_ yang di-substitute (lihat
+# NGINX_ENVSUBST_FILTER di Dockerfile), jadi variabel runtime nginx seperti
+# $host / $remote_addr / $scheme tidak tersentuh.
+#
+# BACKEND_UPSTREAM diisi oleh workflow deploy, mis.
+#   konveksi-staging-backend:8000  atau  konveksi-backend:8000
+# =============================================================================
+
+client_max_body_size 1m;
+
+client_body_timeout 30s;
+client_header_timeout 30s;
+send_timeout 30s;
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Docker embedded DNS. Upstream ditulis sebagai variabel nginx supaya
+    # resolusi terjadi saat request, bukan saat config di-load. Dengan begitu
+    # nginx tetap bisa start walau backend belum berjalan, dan otomatis
+    # mengikuti IP baru setelah container backend di-restart.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    set $konveksi_backend "${BACKEND_UPSTREAM}";
+
+    # Semua endpoint API (/api/v1/...) diteruskan ke backend Laravel.
+    location /api/ {
+        proxy_pass http://$konveksi_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Health check Laravel (opsional).
+    location = /up {
+        proxy_pass http://$konveksi_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Cache panjang untuk asset Vite yang ber-hash.
+    location /assets/ {
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # SPA fallback: selain asset/API, kembalikan index.html.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    location = /index.html {
+        add_header Cache-Control "no-store, must-revalidate";
+    }
+}
