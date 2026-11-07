@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 abstract class Controller
 {
@@ -15,7 +16,7 @@ abstract class Controller
     /**
      * Return a paginated JSON response wrapped in a stable envelope.
      *
-     * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resource
+     * @param  class-string<JsonResource>  $resource
      */
     protected function paginated(Builder $query, Request $request, string $resource): JsonResponse
     {

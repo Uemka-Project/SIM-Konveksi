@@ -176,6 +176,7 @@ class ProductionService
 
                 if ($material === null) {
                     $shortages[] = 'Bahan #'.$materialId.' tidak ditemukan.';
+
                     continue;
                 }
 

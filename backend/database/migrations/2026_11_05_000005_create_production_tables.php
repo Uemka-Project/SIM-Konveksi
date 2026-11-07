@@ -51,7 +51,7 @@ return new class extends Migration
             DB::statement("ALTER TABLE production_progress ADD CONSTRAINT CK_pp_status CHECK (status IN (N'Proses', N'Selesai'))");
             DB::statement('ALTER TABLE production_progress ADD CONSTRAINT CK_pp_qty CHECK (completed_quantity >= 0)');
             DB::statement(
-                "ALTER TABLE production_progress ADD CONSTRAINT CK_pp_done CHECK ("
+                'ALTER TABLE production_progress ADD CONSTRAINT CK_pp_done CHECK ('
                 ."(status = N'Selesai' AND completed_at IS NOT NULL AND completed_at >= started_at) OR "
                 ."(status = N'Proses' AND completed_at IS NULL))"
             );
