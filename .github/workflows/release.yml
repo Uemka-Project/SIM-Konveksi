@@ -215,7 +215,7 @@ jobs:
           NETWORK_SUBNET: ${{ vars.DOCKER_NETWORK_SUBNET || '10.250.0.0/24' }}
           BACKEND_CONTAINER: konveksi-backend
           FRONTEND_CONTAINER: konveksi-frontend
-          SQLSERVER_CONTAINER: ${{ vars.SQLSERVER_CONTAINER || 'mssql_server' }}
+          SQLSERVER_CONTAINER: ${{ vars.SQLSERVER_CONTAINER || 'konveksi_db' }}
           BACKEND_HOST_PORT: ${{ vars.PROD_BACKEND_HOST_PORT || '8082' }}
           FRONTEND_HOST_PORT: ${{ vars.PROD_FRONTEND_HOST_PORT || '5270' }}
           BACKEND_ENV_FILE: ${{ vars.PROD_BACKEND_ENV_FILE || '/home/lynx/Projects/konveksi/config/backend.env' }}
