@@ -210,6 +210,75 @@ class OrderService
     }
 
     /**
+     * FR-P2: aggregate BOM requirements for an order and compare them with
+     * the current material stock.
+     *
+     * @return array<string, mixed>
+     */
+    public function materialRequirements(Order $order): array
+    {
+        $requirements = [];
+
+        foreach ($order->details()->with('variant.materials')->get() as $detail) {
+            $variant = $detail->variant;
+
+            if ($variant === null) {
+                continue;
+            }
+
+            $quantity = (float) $detail->quantity;
+
+            foreach ($variant->materials as $material) {
+                $materialId = $material->material_id;
+                $required = round($quantity * (float) $material->pivot->quantity_per_unit, 2);
+
+                if (! isset($requirements[$materialId])) {
+                    $requirements[$materialId] = [
+                        'material_id' => $materialId,
+                        'material_name' => $material->material_name,
+                        'unit_name' => $material->unit_name,
+                        'required_quantity' => 0.0,
+                        'current_stock' => (float) $material->current_stock,
+                        'minimum_stock' => (float) $material->minimum_stock,
+                    ];
+                }
+
+                $requirements[$materialId]['required_quantity'] = round(
+                    $requirements[$materialId]['required_quantity'] + $required,
+                    2,
+                );
+            }
+        }
+
+        $items = array_map(function (array $requirement): array {
+            $shortage = max(
+                0,
+                round($requirement['required_quantity'] - $requirement['current_stock'], 2),
+            );
+
+            return [
+                ...$requirement,
+                'shortage_quantity' => $shortage,
+                'is_sufficient' => $shortage <= 0,
+            ];
+        }, array_values($requirements));
+
+        usort(
+            $items,
+            fn (array $left, array $right): int => strcmp(
+                $left['material_name'],
+                $right['material_name'],
+            ),
+        );
+
+        return [
+            'order_id' => $order->order_id,
+            'items' => $items,
+            'is_sufficient' => ! in_array(false, array_column($items, 'is_sufficient'), true),
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $details
      */
     private function totalFor(array $details): float

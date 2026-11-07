@@ -108,6 +108,15 @@ class OrderController extends Controller
         return response()->json(['data' => $this->orders->balance($order)]);
     }
 
+    public function materialRequirements(Order $order): JsonResponse
+    {
+        $this->authorize('view', $order);
+
+        return response()->json([
+            'data' => $this->orders->materialRequirements($order),
+        ]);
+    }
+
     /**
      * Load the relations exposed on the order detail screen. Payment lines are
      * only attached for roles that may read the payments module.

@@ -10,7 +10,9 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderPaymentController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductVariantController;
+use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\StockMovementController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +30,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('customers', CustomerController::class);
     Route::apiResource('suppliers', SupplierController::class);
     Route::apiResource('employees', EmployeeController::class);
+    Route::get('materials/low-stock', [MaterialController::class, 'lowStock'])
+        ->name('materials.low-stock');
+    Route::get('materials/{material}/ledger', [StockMovementController::class, 'ledger'])
+        ->name('materials.ledger');
     Route::apiResource('materials', MaterialController::class);
     Route::apiResource('products', ProductController::class);
 
@@ -48,10 +54,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::post('orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
     Route::get('orders/{order}/balance', [OrderController::class, 'balance'])->name('orders.balance');
+    Route::get('orders/{order}/material-requirements', [OrderController::class, 'materialRequirements'])
+        ->name('orders.material-requirements');
     Route::get('orders/{order}/payments', [OrderPaymentController::class, 'index'])->name('orders.payments.index');
     Route::post('orders/{order}/payments', [OrderPaymentController::class, 'store'])->name('orders.payments.store');
     Route::delete('payments/{payment}', [OrderPaymentController::class, 'destroy'])->name('payments.destroy');
     Route::apiResource('orders', OrderController::class);
+
+    Route::get('stock-movements', [StockMovementController::class, 'index'])
+        ->name('stock-movements.index');
+    Route::post('purchases/{purchase}/receive', [PurchaseController::class, 'receive'])
+        ->name('purchases.receive');
+    Route::post('purchases/{purchase}/cancel', [PurchaseController::class, 'cancel'])
+        ->name('purchases.cancel');
+    Route::apiResource('purchases', PurchaseController::class);
 
     Route::put('users/{user}/roles', [UserController::class, 'syncRoles'])->name('users.roles.update');
     Route::apiResource('users', UserController::class);

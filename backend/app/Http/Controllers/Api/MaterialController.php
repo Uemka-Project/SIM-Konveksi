@@ -49,6 +49,23 @@ class MaterialController extends Controller
         ], 201);
     }
 
+    /**
+     * Materials whose current stock is below the minimum level (FR-S4).
+     */
+    public function lowStock(): JsonResponse
+    {
+        $this->authorize('viewAny', Material::class);
+
+        $materials = Material::query()
+            ->whereColumn('current_stock', '<', 'minimum_stock')
+            ->orderBy('material_name')
+            ->get();
+
+        return response()->json([
+            'data' => MaterialResource::collection($materials)->toArray(request()),
+        ]);
+    }
+
     public function show(Material $material): JsonResponse
     {
         $this->authorize('view', $material);

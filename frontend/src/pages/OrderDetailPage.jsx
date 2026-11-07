@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { apiRequest } from '../lib/api'
-import { formatDate, formatRupiah } from '../lib/format'
+import { formatDate, formatNumber, formatRupiah } from '../lib/format'
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -53,6 +53,12 @@ export default function OrderDetailPage() {
     queryFn: () => apiRequest(`/orders/${orderId}`),
   })
 
+  const requirementsQuery = useQuery({
+    queryKey: ['order', orderId, 'material-requirements'],
+    queryFn: () => apiRequest(`/orders/${orderId}/material-requirements`),
+    enabled: orderQuery.isSuccess,
+  })
+
   useEffect(() => {
     if (!feedback) {
       return undefined
@@ -66,9 +72,13 @@ export default function OrderDetailPage() {
   const order = orderQuery.data?.data
   const payments = order?.payments || []
   const productionOrders = order?.production_orders || []
+  const requirements = requirementsQuery.data?.data
 
   function invalidateOrder() {
     queryClient.invalidateQueries({ queryKey: ['order', orderId] })
+    queryClient.invalidateQueries({
+      queryKey: ['order', orderId, 'material-requirements'],
+    })
     queryClient.invalidateQueries({ queryKey: ['orders'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
   }
@@ -446,6 +456,99 @@ export default function OrderDetailPage() {
               </tfoot>
             </table>
           </div>
+        )}
+      </div>
+
+      <div className="panel">
+        <div className="panel-heading">
+          <div>
+            <h3>Kebutuhan Bahan</h3>
+            <p>
+              Perhitungan kebutuhan bahan dari BOM varian dikali jumlah pesanan,
+              dibandingkan dengan stok saat ini.
+            </p>
+          </div>
+
+          {requirements && (
+            <span
+              className={
+                requirements.is_sufficient
+                  ? 'badge badge--success'
+                  : 'badge badge--danger'
+              }
+            >
+              {requirements.is_sufficient
+                ? 'Stok mencukupi'
+                : 'Stok belum mencukupi'}
+            </span>
+          )}
+        </div>
+
+        {requirementsQuery.isLoading ? (
+          <div className="panel-state">
+            <span className="spinner spinner--dark" />
+            Menghitung kebutuhan bahan...
+          </div>
+        ) : requirementsQuery.isError ? (
+          <div className="panel-state panel-state--error">
+            <AlertIcon size={18} />
+            {requirementsQuery.error.message}
+          </div>
+        ) : !requirements || requirements.items.length === 0 ? (
+          <div className="panel-state">
+            Varian pada pesanan ini belum memiliki komponen BOM.
+          </div>
+        ) : (
+          <>
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Bahan</th>
+                    <th className="align-right">Kebutuhan</th>
+                    <th className="align-right">Stok saat ini</th>
+                    <th className="align-right">Kekurangan</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requirements.items.map((item) => (
+                    <tr key={item.material_id}>
+                      <td>{item.material_name}</td>
+                      <td className="align-right">
+                        {formatNumber(item.required_quantity)} {item.unit_name}
+                      </td>
+                      <td className="align-right">
+                        {formatNumber(item.current_stock)} {item.unit_name}
+                      </td>
+                      <td className="align-right">
+                        {item.shortage_quantity > 0
+                          ? `${formatNumber(item.shortage_quantity)} ${item.unit_name}`
+                          : '—'}
+                      </td>
+                      <td>
+                        {item.is_sufficient ? (
+                          <span className="badge badge--success">Cukup</span>
+                        ) : (
+                          <span className="badge badge--danger">Kurang</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {!requirements.is_sufficient && can('purchases', 'C') && (
+              <div className="panel-note">
+                Stok belum mencukupi.{' '}
+                <Link className="text-link" to="/purchases/new">
+                  Buat pembelian bahan
+                </Link>{' '}
+                untuk menambah stok lewat penerimaan gudang.
+              </div>
+            )}
+          </>
         )}
       </div>
 

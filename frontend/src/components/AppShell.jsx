@@ -9,6 +9,8 @@ import {
   MaterialIcon,
   OrderIcon,
   ProductIcon,
+  PurchaseIcon,
+  StockIcon,
   SupplierIcon,
   UsersIcon,
 } from './Icons'
@@ -21,6 +23,8 @@ const NAV_ITEMS = [
   { to: '/materials', label: 'Bahan Baku', icon: MaterialIcon, module: 'materials' },
   { to: '/products', label: 'Produk', icon: ProductIcon, module: 'products' },
   { to: '/orders', label: 'Pesanan', icon: OrderIcon, module: 'orders' },
+  { to: '/purchases', label: 'Pembelian', icon: PurchaseIcon, module: 'purchases' },
+  { to: '/stock-movements', label: 'Stok', icon: StockIcon, module: 'stock' },
   { to: '/users', label: 'Pengguna', icon: UsersIcon, module: 'users' },
 ]
 
@@ -33,6 +37,9 @@ const PAGE_TITLES = {
   '/products': 'Produk & Varian',
   '/orders': 'Pesanan',
   '/orders/new': 'Buat Pesanan',
+  '/purchases': 'Pembelian',
+  '/purchases/new': 'Buat Pembelian',
+  '/stock-movements': 'Stok & Kartu Stok',
   '/users': 'Pengguna & Peran',
 }
 
@@ -47,6 +54,14 @@ function pageTitle(pathname) {
 
   if (/^\/orders\/[^/]+$/.test(pathname)) {
     return 'Detail Pesanan'
+  }
+
+  if (/^\/purchases\/[^/]+\/edit$/.test(pathname)) {
+    return 'Ubah Pembelian'
+  }
+
+  if (/^\/purchases\/[^/]+$/.test(pathname)) {
+    return 'Detail Pembelian'
   }
 
   return PAGE_TITLES[pathname] || 'SIM Konveksi'
@@ -99,7 +114,7 @@ export default function AppShell() {
 
         <div className="app-sidebar-footer">
           <p className="app-sidebar-note">
-            Fase 3 · Pesanan &amp; Pembayaran
+            Fase 4 · Pembelian &amp; Stok
           </p>
           <button type="button" className="app-logout" onClick={logout}>
             <LogoutIcon size={17} />

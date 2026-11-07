@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import CrudPage from '../components/CrudPage'
 import { formatNumber } from '../lib/format'
 
@@ -5,7 +6,7 @@ export default function MaterialsPage() {
   return (
     <CrudPage
       title="Bahan Baku"
-      description="Stok bahan baku diperbarui lewat buku besar stok pada fase berikutnya."
+      description="Stok bahan diperbarui lewat buku besar dari penerimaan pembelian dan serah bahan produksi."
       endpoint="/materials"
       queryKey="materials"
       module="materials"
@@ -34,6 +35,18 @@ export default function MaterialsPage() {
             ) : (
               <span className="badge badge--success">Aman</span>
             ),
+        },
+        {
+          key: 'ledger',
+          label: 'Riwayat',
+          render: (item) => (
+            <Link
+              className="text-link"
+              to={`/stock-movements?material_id=${item.material_id}`}
+            >
+              Kartu stok
+            </Link>
+          ),
         },
       ]}
       fields={[

@@ -261,3 +261,23 @@ export function AlertTriangleIcon(props) {
   )
 }
 
+export function PurchaseIcon(props) {
+  return (
+    <IconBase {...props}>
+      <circle cx="9" cy="20" r="1.4" />
+      <circle cx="18" cy="20" r="1.4" />
+      <path d="M2.5 3.5h2l2.2 10.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L20 7H6" />
+    </IconBase>
+  )
+}
+
+export function StockIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M3.5 8 12 3.5 20.5 8 12 12.5 3.5 8Z" />
+      <path d="M3.5 8v8L12 20.5 20.5 16V8" />
+      <path d="M12 12.5v8" />
+    </IconBase>
+  )
+}
+
