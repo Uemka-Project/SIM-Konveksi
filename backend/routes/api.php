@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductVariantController;
 use App\Http\Controllers\Api\ProductionOrderController;
 use App\Http\Controllers\Api\PurchaseController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\StockMovementController;
 use App\Http\Controllers\Api\SupplierController;
@@ -80,6 +81,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('stock-movements', [StockMovementController::class, 'index'])
         ->name('stock-movements.index');
+
+    Route::get('reports/sales', [ReportController::class, 'sales'])->name('reports.sales');
+    Route::get('reports/purchases', [ReportController::class, 'purchases'])->name('reports.purchases');
+    Route::get('reports/stock-card', [ReportController::class, 'stockCard'])->name('reports.stock-card');
+    Route::get('reports/productivity', [ReportController::class, 'productivity'])
+        ->name('reports.productivity');
+    Route::get('reports/{report}/export', [ReportController::class, 'export'])
+        ->whereIn('report', ['sales', 'purchases', 'stock-card', 'productivity'])
+        ->name('reports.export');
     Route::post('purchases/{purchase}/receive', [PurchaseController::class, 'receive'])
         ->name('purchases.receive');
     Route::post('purchases/{purchase}/cancel', [PurchaseController::class, 'cancel'])

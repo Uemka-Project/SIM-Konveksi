@@ -59,3 +59,43 @@ export async function apiRequest(path, { method = 'GET', body, token } = {}) {
 
   return payload
 }
+
+export async function apiDownload(path) {
+  const headers = {
+    Accept: 'text/csv, application/pdf, application/json',
+  }
+
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`
+  }
+
+  let response
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { headers })
+  } catch {
+    throw new ApiError(
+      'Tidak dapat terhubung ke server. Pastikan backend Laravel sudah berjalan.',
+      0,
+    )
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}))
+
+    throw new ApiError(
+      payload.message || 'Gagal mengunduh laporan. Silakan coba lagi.',
+      response.status,
+      payload.errors || {},
+    )
+  }
+
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const match = /filename="?([^";]+)"?/i.exec(disposition)
+  const blob = await response.blob()
+
+  return {
+    blob,
+    filename: match?.[1] || 'laporan',
+  }
+}

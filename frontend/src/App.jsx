@@ -16,6 +16,7 @@ import ProductionOrdersPage from './pages/ProductionOrdersPage'
 import PurchaseDetailPage from './pages/PurchaseDetailPage'
 import PurchaseFormPage from './pages/PurchaseFormPage'
 import PurchasesPage from './pages/PurchasesPage'
+import ReportsPage from './pages/ReportsPage'
 import StockMovementsPage from './pages/StockMovementsPage'
 import SuppliersPage from './pages/SuppliersPage'
 import UsersPage from './pages/UsersPage'
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="purchases/:purchaseId" element={<PurchaseDetailPage />} />
         <Route path="purchases/:purchaseId/edit" element={<PurchaseFormPage />} />
         <Route path="stock-movements" element={<StockMovementsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="users" element={<UsersPage />} />
       </Route>
 

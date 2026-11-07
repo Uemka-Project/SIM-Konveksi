@@ -11,6 +11,7 @@ import {
   ProductIcon,
   ProductionIcon,
   PurchaseIcon,
+  ReportIcon,
   StockIcon,
   SupplierIcon,
   UsersIcon,
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { to: '/production-orders', label: 'Produksi', icon: ProductionIcon, module: 'production' },
   { to: '/purchases', label: 'Pembelian', icon: PurchaseIcon, module: 'purchases' },
   { to: '/stock-movements', label: 'Stok', icon: StockIcon, module: 'stock' },
+  { to: '/reports', label: 'Laporan', icon: ReportIcon, module: 'reports' },
   { to: '/users', label: 'Pengguna', icon: UsersIcon, module: 'users' },
 ]
 
@@ -43,6 +45,7 @@ const PAGE_TITLES = {
   '/purchases': 'Pembelian',
   '/purchases/new': 'Buat Pembelian',
   '/stock-movements': 'Stok & Kartu Stok',
+  '/reports': 'Laporan Manajemen',
   '/users': 'Pengguna & Peran',
 }
 
@@ -121,7 +124,7 @@ export default function AppShell() {
 
         <div className="app-sidebar-footer">
           <p className="app-sidebar-note">
-            Fase 5 · Produksi &amp; Serah Produk
+            Fase 6 · Dasbor &amp; Laporan
           </p>
           <button type="button" className="app-logout" onClick={logout}>
             <LogoutIcon size={17} />

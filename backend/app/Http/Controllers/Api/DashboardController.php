@@ -5,23 +5,30 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MaterialResource;
 use App\Http\Resources\OrderResource;
+use App\Http\Resources\ProductionOrderResource;
 use App\Models\Customer;
 use App\Models\Employee;
 use App\Models\Material;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductionOrder;
 use App\Models\Supplier;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 
 class DashboardController extends Controller
 {
     /**
-     * Read-only summary used by the dashboard screen.
+     * Read-only summary used by the dashboard screen (FR-R1).
      */
     public function index(): JsonResponse
     {
         Gate::authorize('viewAny', Material::class);
+
+        $today = now()->toDateString();
+        $dueSoonUntil = now()->addDays(7)->toDateString();
+        $activeStatuses = ['Baru', 'Diproses'];
 
         $lowStock = Material::query()
             ->whereColumn('current_stock', '<', 'minimum_stock')
@@ -29,22 +36,82 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        $recentOrders = Order::query()
-            ->with('customer')
-            ->withSum('payments', 'amount')
+        $lowStockCount = Material::query()
+            ->whereColumn('current_stock', '<', 'minimum_stock')
+            ->count();
+
+        $recentOrders = $this->orderQuery()
             ->orderByDesc('order_date')
             ->orderByDesc('order_id')
             ->limit(5)
             ->get();
 
-        $unpaidTotal = (float) Order::query()
+        $activeOrders = $this->orderQuery()
+            ->whereIn('status', $activeStatuses)
+            ->orderBy('due_date')
+            ->orderBy('order_id')
+            ->limit(10)
+            ->get();
+
+        $dueSoonOrders = $this->orderQuery()
+            ->whereIn('status', $activeStatuses)
+            ->whereDate('due_date', '>=', $today)
+            ->whereDate('due_date', '<=', $dueSoonUntil)
+            ->orderBy('due_date')
+            ->orderBy('order_id')
+            ->limit(10)
+            ->get();
+
+        $overdueOrders = $this->orderQuery()
+            ->whereIn('status', $activeStatuses)
+            ->whereDate('due_date', '<', $today)
+            ->orderBy('due_date')
+            ->orderBy('order_id')
+            ->limit(10)
+            ->get();
+
+        $unpaidOrders = $this->orderQuery()
             ->whereNotIn('status', ['Dibatalkan'])
-            ->withSum('payments', 'amount')
-            ->get()
-            ->sum(fn (Order $order): float => max(
+            ->get();
+
+        $unpaidTotal = (float) $unpaidOrders->sum(
+            fn (Order $order): float => max(
                 0,
                 (float) $order->total_amount - (float) ($order->payments_sum_amount ?? 0),
-            ));
+            ),
+        );
+        $unpaidCount = $unpaidOrders
+            ->filter(fn (Order $order): bool => (float) $order->total_amount
+                - (float) ($order->payments_sum_amount ?? 0) > 0)
+            ->count();
+
+        $runningProduction = ProductionOrder::query()
+            ->with([
+                'orderDetail.order.customer',
+                'orderDetail.variant.product',
+                'progress' => fn ($query) => $query
+                    ->with('employee')
+                    ->orderBy('started_at')
+                    ->orderBy('progress_id'),
+            ])
+            ->withCount('progress')
+            ->where('status', 'Berjalan')
+            ->orderBy('target_date')
+            ->orderBy('production_order_id')
+            ->limit(10)
+            ->get();
+
+        $activeCount = Order::query()->whereIn('status', $activeStatuses)->count();
+        $dueSoonCount = Order::query()
+            ->whereIn('status', $activeStatuses)
+            ->whereDate('due_date', '>=', $today)
+            ->whereDate('due_date', '<=', $dueSoonUntil)
+            ->count();
+        $overdueCount = Order::query()
+            ->whereIn('status', $activeStatuses)
+            ->whereDate('due_date', '<', $today)
+            ->count();
+        $runningCount = ProductionOrder::query()->where('status', 'Berjalan')->count();
 
         return response()->json([
             'data' => [
@@ -56,10 +123,31 @@ class DashboardController extends Controller
                     'products' => Product::count(),
                     'orders' => Order::count(),
                 ],
+                'summary' => [
+                    'active_orders' => $activeCount,
+                    'due_soon_orders' => $dueSoonCount,
+                    'overdue_orders' => $overdueCount,
+                    'running_production' => $runningCount,
+                    'low_stock_materials' => $lowStockCount,
+                    'unpaid_orders' => $unpaidCount,
+                    'unpaid_total' => round($unpaidTotal, 2),
+                ],
                 'low_stock' => MaterialResource::collection($lowStock)->toArray(request()),
                 'recent_orders' => OrderResource::collection($recentOrders)->toArray(request()),
-                'unpaid_total' => $unpaidTotal,
+                'active_orders' => OrderResource::collection($activeOrders)->toArray(request()),
+                'due_soon_orders' => OrderResource::collection($dueSoonOrders)->toArray(request()),
+                'overdue_orders' => OrderResource::collection($overdueOrders)->toArray(request()),
+                'running_production' => ProductionOrderResource::collection($runningProduction)
+                    ->toArray(request()),
+                'unpaid_total' => round($unpaidTotal, 2),
             ],
         ]);
+    }
+
+    private function orderQuery(): Builder
+    {
+        return Order::query()
+            ->with('customer')
+            ->withSum('payments', 'amount');
     }
 }

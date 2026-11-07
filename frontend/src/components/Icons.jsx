@@ -311,3 +311,26 @@ export function ClockIcon(props) {
   )
 }
 
+export function ReportIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 20V4" />
+      <path d="M4 20h16" />
+      <path d="M8 16v-4" />
+      <path d="M12 16V8" />
+      <path d="M16 16v-7" />
+      <path d="M20 16V6" />
+    </IconBase>
+  )
+}
+
+export function DownloadIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </IconBase>
+  )
+}
+
