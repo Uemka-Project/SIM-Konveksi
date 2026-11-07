@@ -281,3 +281,33 @@ export function StockIcon(props) {
   )
 }
 
+export function ProductionIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M3 20h18" />
+      <path d="M4 20V9l5 3V9l5 3V6l6-2v16" />
+      <path d="M8 20v-4h3v4" />
+    </IconBase>
+  )
+}
+
+export function TruckIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M3 6h11v10H3z" />
+      <path d="M14 10h4l3 3v3h-7z" />
+      <circle cx="7" cy="18" r="1.6" />
+      <circle cx="17" cy="18" r="1.6" />
+    </IconBase>
+  )
+}
+
+export function ClockIcon(props) {
+  return (
+    <IconBase {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </IconBase>
+  )
+}
+

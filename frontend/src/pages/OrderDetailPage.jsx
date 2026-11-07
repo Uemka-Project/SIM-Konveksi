@@ -10,6 +10,7 @@ import {
   EditIcon,
   PlusIcon,
   TrashIcon,
+  TruckIcon,
   WalletIcon,
 } from '../components/Icons'
 
@@ -18,6 +19,12 @@ const STATUS_BADGE = {
   Diproses: 'badge badge--warning',
   Selesai: 'badge badge--success',
   Dibatalkan: 'badge badge--danger',
+}
+
+const PRODUCTION_STATUS_BADGE = {
+  Menunggu: 'badge badge--muted',
+  Berjalan: 'badge badge--warning',
+  Selesai: 'badge badge--success',
 }
 
 function today() {
@@ -47,6 +54,13 @@ export default function OrderDetailPage() {
   const [error, setError] = useState('')
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [paymentForm, setPaymentForm] = useState(() => emptyPayment(null))
+  const [spkOpen, setSpkOpen] = useState(false)
+  const [spkDetail, setSpkDetail] = useState(null)
+  const [spkForm, setSpkForm] = useState({
+    planned_quantity: '',
+    start_date: '',
+    target_date: '',
+  })
 
   const orderQuery = useQuery({
     queryKey: ['order', orderId],
@@ -80,6 +94,7 @@ export default function OrderDetailPage() {
       queryKey: ['order', orderId, 'material-requirements'],
     })
     queryClient.invalidateQueries({ queryKey: ['orders'] })
+    queryClient.invalidateQueries({ queryKey: ['production-orders'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard'] })
   }
 
@@ -139,6 +154,33 @@ export default function OrderDetailPage() {
     onError: handleError,
   })
 
+  const createSpkMutation = useMutation({
+    mutationFn: (payload) =>
+      apiRequest(
+        `/order-items/${spkDetail?.order_detail_id}/production-orders`,
+        { method: 'POST', body: payload },
+      ),
+    onSuccess: (response) => {
+      invalidateOrder()
+      setSpkOpen(false)
+      setSpkDetail(null)
+      setError('')
+      setFeedback(response.message)
+    },
+    onError: handleError,
+  })
+
+  const handoverMutation = useMutation({
+    mutationFn: () =>
+      apiRequest(`/orders/${orderId}/handover`, { method: 'POST' }),
+    onSuccess: (response) => {
+      invalidateOrder()
+      setError('')
+      setFeedback(response.message)
+    },
+    onError: handleError,
+  })
+
   if (orderQuery.isLoading) {
     return (
       <div className="panel-state">
@@ -166,6 +208,15 @@ export default function OrderDetailPage() {
     can('orders', 'U') &&
     ['Baru', 'Diproses'].includes(order.status) &&
     productionOrders.length === 0
+  const hasDp = payments.some((payment) => payment.payment_type === 'DP')
+  const canCreateSpk = can('production', 'C')
+  const canAddSpk =
+    canCreateSpk && order.status === 'Diproses' && hasDp
+  const handoverReady =
+    order.status === 'Diproses' &&
+    order.all_production_completed &&
+    order.is_paid
+  const canHandover = can('orders', 'U') && handoverReady
 
   function openPayment() {
     setPaymentForm(emptyPayment(order))
@@ -234,6 +285,70 @@ export default function OrderDetailPage() {
     setError('')
   }
 
+  function allocatedFor(detailId) {
+    return productionOrders
+      .filter(
+        (productionOrder) =>
+          productionOrder.order_detail_id === detailId,
+      )
+      .reduce(
+        (total, productionOrder) =>
+          total + Number(productionOrder.planned_quantity || 0),
+        0,
+      )
+  }
+
+  function openSpk(detail) {
+    const remaining = detail.quantity - allocatedFor(detail.order_detail_id)
+
+    setSpkDetail({ ...detail, remaining_quantity: remaining })
+    setSpkForm({
+      planned_quantity: String(Math.max(remaining, 0)),
+      start_date: today(),
+      target_date: order.due_date || today(),
+    })
+    setError('')
+    setSpkOpen(true)
+  }
+
+  function updateSpkField(name, value) {
+    setSpkForm((current) => ({ ...current, [name]: value }))
+    setError('')
+  }
+
+  function handleSpkSubmit(event) {
+    event.preventDefault()
+    setError('')
+
+    if (!spkForm.planned_quantity || Number(spkForm.planned_quantity) <= 0) {
+      setError('Jumlah rencana produksi minimal 1.')
+      return
+    }
+
+    if (!spkForm.target_date) {
+      setError('Tanggal target wajib diisi.')
+      return
+    }
+
+    createSpkMutation.mutate({
+      planned_quantity: Number(spkForm.planned_quantity),
+      start_date: spkForm.start_date || null,
+      target_date: spkForm.target_date,
+    })
+  }
+
+  function handleHandover() {
+    if (
+      !window.confirm(
+        'Serahkan produk pesanan ini kepada pelanggan? Status pesanan akan menjadi Selesai dan tidak dapat dikembalikan.',
+      )
+    ) {
+      return
+    }
+
+    handoverMutation.mutate()
+  }
+
   return (
     <section className="page-stack">
       <div>
@@ -261,8 +376,19 @@ export default function OrderDetailPage() {
           </p>
         </div>
 
-        {(canEdit || canDelete) && (
+        {(canHandover || canEdit || canDelete) && (
           <div className="page-heading-actions">
+            {canHandover && (
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={handleHandover}
+                disabled={handoverMutation.isPending}
+              >
+                <TruckIcon size={16} />
+                {handoverMutation.isPending ? 'Memproses...' : 'Serah Produk'}
+              </button>
+            )}
             {canEdit && (
               <Link
                 className="button button--ghost"
@@ -398,6 +524,18 @@ export default function OrderDetailPage() {
               </span>
             )}
           </div>
+
+          {order.status === 'Diproses' && (
+            <div className="panel-note">
+              {order.all_production_completed
+                ? order.is_paid
+                  ? 'Semua perintah produksi selesai dan tagihan lunas. Produk siap diserahkan.'
+                  : `Semua perintah produksi selesai. Sisa tagihan ${formatRupiah(
+                      order.remaining_amount,
+                    )} harus dilunasi sebelum serah produk.`
+                : 'Serah produk tersedia setelah semua perintah produksi berstatus Selesai dan tagihan lunas.'}
+            </div>
+          )}
         </div>
       </div>
 
@@ -420,33 +558,56 @@ export default function OrderDetailPage() {
                   <th>SKU</th>
                   <th>Ukuran / Warna</th>
                   <th className="align-right">Jumlah</th>
+                  <th>Produksi</th>
                   <th className="align-right">Harga satuan</th>
                   <th className="align-right">Subtotal</th>
                 </tr>
               </thead>
               <tbody>
-                {order.details.map((detail) => (
-                  <tr key={detail.order_detail_id}>
-                    <td>{detail.product_name || '—'}</td>
-                    <td>
-                      <strong>{detail.sku || '—'}</strong>
-                    </td>
-                    <td>
-                      {detail.size} / {detail.color}
-                    </td>
-                    <td className="align-right">{detail.quantity}</td>
-                    <td className="align-right">
-                      {formatRupiah(detail.unit_price)}
-                    </td>
-                    <td className="align-right">
-                      {formatRupiah(detail.subtotal)}
-                    </td>
-                  </tr>
-                ))}
+                {order.details.map((detail) => {
+                  const allocated = allocatedFor(detail.order_detail_id)
+                  const canAdd = canAddSpk && allocated < detail.quantity
+
+                  return (
+                    <tr key={detail.order_detail_id}>
+                      <td>{detail.product_name || '—'}</td>
+                      <td>
+                        <strong>{detail.sku || '—'}</strong>
+                      </td>
+                      <td>
+                        {detail.size} / {detail.color}
+                      </td>
+                      <td className="align-right">{detail.quantity}</td>
+                      <td>
+                        <div className="production-alloc">
+                          <span>
+                            {allocated} / {detail.quantity} terjadwal
+                          </span>
+                          {canAdd && (
+                            <button
+                              type="button"
+                              className="button button--ghost button--small"
+                              onClick={() => openSpk(detail)}
+                            >
+                              <PlusIcon size={14} />
+                              Buat SPK
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="align-right">
+                        {formatRupiah(detail.unit_price)}
+                      </td>
+                      <td className="align-right">
+                        {formatRupiah(detail.subtotal)}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
               <tfoot>
                 <tr className="table-total-row">
-                  <td colSpan={5} className="align-right">
+                  <td colSpan={6} className="align-right">
                     Total pesanan
                   </td>
                   <td className="align-right">
@@ -654,24 +815,157 @@ export default function OrderDetailPage() {
                   <th>Status</th>
                   <th>Mulai</th>
                   <th>Target</th>
+                  <th className="align-right">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {productionOrders.map((productionOrder) => (
                   <tr key={productionOrder.production_order_id}>
-                    <td>#{productionOrder.production_order_id}</td>
+                    <td>
+                      <Link
+                        className="text-link"
+                        to={`/production-orders/${productionOrder.production_order_id}`}
+                      >
+                        #{productionOrder.production_order_id}
+                      </Link>
+                    </td>
                     <td>{productionOrder.planned_quantity}</td>
                     <td>
-                      <span className="badge badge--muted">
+                      <span
+                        className={
+                          PRODUCTION_STATUS_BADGE[productionOrder.status] ||
+                          'badge'
+                        }
+                      >
                         {productionOrder.status}
                       </span>
                     </td>
                     <td>{formatDate(productionOrder.start_date)}</td>
                     <td>{formatDate(productionOrder.target_date)}</td>
+                    <td className="align-right">
+                      <Link
+                        className="button button--ghost button--small"
+                        to={`/production-orders/${productionOrder.production_order_id}`}
+                      >
+                        Detail
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {spkOpen && spkDetail && (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal" role="dialog" aria-modal="true">
+            <div className="modal-header">
+              <h3>Buat Perintah Produksi</h3>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setSpkOpen(false)}
+                aria-label="Tutup"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form className="modal-form" onSubmit={handleSpkSubmit}>
+              {error && (
+                <div className="banner banner--error" role="alert">
+                  {error}
+                </div>
+              )}
+
+              <div className="payment-summary">
+                <span>
+                  Item{' '}
+                  <strong>
+                    {spkDetail.product_name || '—'} · {spkDetail.sku || '—'}
+                  </strong>
+                </span>
+                <span>
+                  Sisa belum terjadwal{' '}
+                  <strong>{spkDetail.remaining_quantity} pcs</strong>
+                </span>
+              </div>
+
+              <div className="field">
+                <label className="field-label" htmlFor="spk-quantity">
+                  Jumlah rencana produksi *
+                </label>
+                <input
+                  id="spk-quantity"
+                  type="number"
+                  min="1"
+                  max={spkDetail.remaining_quantity}
+                  step="1"
+                  value={spkForm.planned_quantity}
+                  onChange={(event) =>
+                    updateSpkField('planned_quantity', event.target.value)
+                  }
+                  required
+                />
+                <small className="field-help">
+                  Maksimal {spkDetail.remaining_quantity} pcs dari item ini.
+                  Satu item boleh dipecah menjadi beberapa batch.
+                </small>
+              </div>
+
+              <div className="form-grid">
+                <div className="field">
+                  <label className="field-label" htmlFor="spk-start">
+                    Tanggal mulai
+                  </label>
+                  <input
+                    id="spk-start"
+                    type="date"
+                    value={spkForm.start_date}
+                    onChange={(event) =>
+                      updateSpkField('start_date', event.target.value)
+                    }
+                  />
+                  <small className="field-help">
+                    Boleh dikosongkan; otomatis diisi saat bahan diserahkan.
+                  </small>
+                </div>
+
+                <div className="field">
+                  <label className="field-label" htmlFor="spk-target">
+                    Target selesai *
+                  </label>
+                  <input
+                    id="spk-target"
+                    type="date"
+                    value={spkForm.target_date}
+                    onChange={(event) =>
+                      updateSpkField('target_date', event.target.value)
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="button button--ghost"
+                  onClick={() => setSpkOpen(false)}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="button button--primary"
+                  disabled={createSpkMutation.isPending}
+                >
+                  {createSpkMutation.isPending ? 'Menyimpan...' : 'Buat SPK'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

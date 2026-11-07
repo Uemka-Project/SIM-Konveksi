@@ -101,6 +101,18 @@ class OrderController extends Controller
         ]);
     }
 
+    public function handover(Order $order): JsonResponse
+    {
+        $this->authorize('update', $order);
+
+        $order = $this->orders->handover($order);
+
+        return response()->json([
+            'message' => 'Produk berhasil diserahkan. Pesanan telah selesai.',
+            'data' => new OrderDetailResource($this->loadOrder($order)),
+        ]);
+    }
+
     public function balance(Order $order): JsonResponse
     {
         $this->authorize('view', $order);

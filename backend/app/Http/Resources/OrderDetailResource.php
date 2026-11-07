@@ -11,10 +11,16 @@ class OrderDetailResource extends OrderResource
      */
     public function toArray(Request $request): array
     {
+        $productionOrders = $this->relationLoaded('productionOrders')
+            ? $this->productionOrders
+            : collect();
+
         return array_merge(parent::toArray($request), [
             'details' => OrderItemResource::collection($this->whenLoaded('details')),
             'payments' => PaymentResource::collection($this->whenLoaded('payments')),
-            'production_orders' => $this->whenLoaded('productionOrders', fn () => $this->productionOrders
+            'all_production_completed' => $productionOrders->isNotEmpty()
+                && $productionOrders->every(fn ($productionOrder): bool => $productionOrder->status === 'Selesai'),
+            'production_orders' => $this->whenLoaded('productionOrders', fn () => $productionOrders
                 ->map(fn ($productionOrder): array => [
                     'production_order_id' => $productionOrder->production_order_id,
                     'order_detail_id' => $productionOrder->order_detail_id,

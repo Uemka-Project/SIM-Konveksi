@@ -11,6 +11,8 @@ import OrderFormPage from './pages/OrderFormPage'
 import OrdersPage from './pages/OrdersPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import ProductsPage from './pages/ProductsPage'
+import ProductionOrderDetailPage from './pages/ProductionOrderDetailPage'
+import ProductionOrdersPage from './pages/ProductionOrdersPage'
 import PurchaseDetailPage from './pages/PurchaseDetailPage'
 import PurchaseFormPage from './pages/PurchaseFormPage'
 import PurchasesPage from './pages/PurchasesPage'
@@ -42,6 +44,11 @@ export default function App() {
         <Route path="orders/new" element={<OrderFormPage />} />
         <Route path="orders/:orderId" element={<OrderDetailPage />} />
         <Route path="orders/:orderId/edit" element={<OrderFormPage />} />
+        <Route path="production-orders" element={<ProductionOrdersPage />} />
+        <Route
+          path="production-orders/:productionOrderId"
+          element={<ProductionOrderDetailPage />}
+        />
         <Route path="purchases" element={<PurchasesPage />} />
         <Route path="purchases/new" element={<PurchaseFormPage />} />
         <Route path="purchases/:purchaseId" element={<PurchaseDetailPage />} />

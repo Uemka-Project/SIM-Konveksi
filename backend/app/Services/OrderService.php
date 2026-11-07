@@ -129,6 +129,54 @@ class OrderService
     }
 
     /**
+     * FR-O6: hand the finished products over to the customer. This is only
+     * allowed when every production order is Selesai and the invoice is paid.
+     */
+    public function handover(Order $order): Order
+    {
+        return DB::transaction(function () use ($order): Order {
+            $order = $this->lockOrder($order);
+
+            if ($order->status !== 'Diproses') {
+                $message = $order->status === 'Selesai'
+                    ? 'Produk untuk pesanan ini sudah diserahkan.'
+                    : "Pesanan berstatus {$order->status} tidak dapat diserahkan.";
+
+                throw new BusinessRuleException($message, ['status' => [$message]]);
+            }
+
+            $productionOrders = $order->productionOrders()
+                ->lockForUpdate()
+                ->get();
+
+            if ($productionOrders->isEmpty()) {
+                $message = 'Pesanan belum memiliki perintah produksi sehingga belum dapat diserahkan.';
+
+                throw new BusinessRuleException($message, ['status' => [$message]]);
+            }
+
+            if ($productionOrders->contains(fn ($productionOrder): bool => $productionOrder->status !== 'Selesai')) {
+                $message = 'Semua perintah produksi pesanan harus berstatus Selesai sebelum produk diserahkan.';
+
+                throw new BusinessRuleException($message, ['status' => [$message]]);
+            }
+
+            $remaining = max(0, round((float) $order->total_amount - $this->paidAmount($order), 2));
+
+            if ($remaining > 0.001) {
+                $message = 'Sisa tagihan Rp'.number_format($remaining, 0, ',', '.')
+                    .' harus dilunasi sebelum produk diserahkan.';
+
+                throw new BusinessRuleException($message, ['payment' => [$message]]);
+            }
+
+            $order->update(['status' => 'Selesai']);
+
+            return $order;
+        });
+    }
+
+    /**
      * Record a payment, never allowing the order to be overpaid (FR-O3).
      *
      * @param  array<string, mixed>  $attributes

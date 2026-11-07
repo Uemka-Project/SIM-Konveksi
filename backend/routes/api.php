@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderPaymentController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductVariantController;
+use App\Http\Controllers\Api\ProductionOrderController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\StockMovementController;
@@ -53,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('variants/{variant}/bom', [BomController::class, 'update'])->name('bom.update');
 
     Route::post('orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
+    Route::post('orders/{order}/handover', [OrderController::class, 'handover'])->name('orders.handover');
     Route::get('orders/{order}/balance', [OrderController::class, 'balance'])->name('orders.balance');
     Route::get('orders/{order}/material-requirements', [OrderController::class, 'materialRequirements'])
         ->name('orders.material-requirements');
@@ -60,6 +62,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('orders/{order}/payments', [OrderPaymentController::class, 'store'])->name('orders.payments.store');
     Route::delete('payments/{payment}', [OrderPaymentController::class, 'destroy'])->name('payments.destroy');
     Route::apiResource('orders', OrderController::class);
+
+    Route::post('order-items/{orderDetail}/production-orders', [ProductionOrderController::class, 'store'])
+        ->name('order-items.production-orders.store');
+    Route::get('production-orders', [ProductionOrderController::class, 'index'])
+        ->name('production-orders.index');
+    Route::get('production-orders/{productionOrder}/requirements', [ProductionOrderController::class, 'requirements'])
+        ->name('production-orders.requirements');
+    Route::post('production-orders/{productionOrder}/issue-materials', [ProductionOrderController::class, 'issueMaterials'])
+        ->name('production-orders.issue-materials');
+    Route::post('production-orders/{productionOrder}/progress', [ProductionOrderController::class, 'storeProgress'])
+        ->name('production-orders.progress.store');
+    Route::get('production-orders/{productionOrder}', [ProductionOrderController::class, 'show'])
+        ->name('production-orders.show');
+    Route::patch('progress/{progress}', [ProductionOrderController::class, 'updateProgress'])
+        ->name('progress.update');
 
     Route::get('stock-movements', [StockMovementController::class, 'index'])
         ->name('stock-movements.index');

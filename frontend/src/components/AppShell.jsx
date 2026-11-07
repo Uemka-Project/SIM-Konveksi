@@ -9,6 +9,7 @@ import {
   MaterialIcon,
   OrderIcon,
   ProductIcon,
+  ProductionIcon,
   PurchaseIcon,
   StockIcon,
   SupplierIcon,
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { to: '/materials', label: 'Bahan Baku', icon: MaterialIcon, module: 'materials' },
   { to: '/products', label: 'Produk', icon: ProductIcon, module: 'products' },
   { to: '/orders', label: 'Pesanan', icon: OrderIcon, module: 'orders' },
+  { to: '/production-orders', label: 'Produksi', icon: ProductionIcon, module: 'production' },
   { to: '/purchases', label: 'Pembelian', icon: PurchaseIcon, module: 'purchases' },
   { to: '/stock-movements', label: 'Stok', icon: StockIcon, module: 'stock' },
   { to: '/users', label: 'Pengguna', icon: UsersIcon, module: 'users' },
@@ -37,6 +39,7 @@ const PAGE_TITLES = {
   '/products': 'Produk & Varian',
   '/orders': 'Pesanan',
   '/orders/new': 'Buat Pesanan',
+  '/production-orders': 'Produksi',
   '/purchases': 'Pembelian',
   '/purchases/new': 'Buat Pembelian',
   '/stock-movements': 'Stok & Kartu Stok',
@@ -54,6 +57,10 @@ function pageTitle(pathname) {
 
   if (/^\/orders\/[^/]+$/.test(pathname)) {
     return 'Detail Pesanan'
+  }
+
+  if (/^\/production-orders\/[^/]+$/.test(pathname)) {
+    return 'Detail Produksi'
   }
 
   if (/^\/purchases\/[^/]+\/edit$/.test(pathname)) {
@@ -114,7 +121,7 @@ export default function AppShell() {
 
         <div className="app-sidebar-footer">
           <p className="app-sidebar-note">
-            Fase 4 · Pembelian &amp; Stok
+            Fase 5 · Produksi &amp; Serah Produk
           </p>
           <button type="button" className="app-logout" onClick={logout}>
             <LogoutIcon size={17} />
