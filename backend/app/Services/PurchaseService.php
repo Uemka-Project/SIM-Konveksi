@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\BusinessRuleException;
 use App\Models\Purchase;
+use App\Support\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 class PurchaseService
@@ -27,6 +28,12 @@ class PurchaseService
             ]);
 
             $this->createDetails($purchase, $details);
+
+            AuditLogger::record('purchase.created', 'Pembelian #'.$purchase->purchase_id.' dibuat.', [
+                'purchase_id' => $purchase->purchase_id,
+                'supplier_id' => $purchase->supplier_id,
+                'total_amount' => (float) $purchase->total_amount,
+            ]);
 
             return $purchase;
         });
@@ -55,6 +62,11 @@ class PurchaseService
             $purchase->details()->delete();
             $this->createDetails($purchase, $details);
 
+            AuditLogger::record('purchase.updated', 'Pembelian #'.$purchase->purchase_id.' diperbarui.', [
+                'purchase_id' => $purchase->purchase_id,
+                'total_amount' => (float) $purchase->total_amount,
+            ]);
+
             return $purchase;
         });
     }
@@ -77,6 +89,10 @@ class PurchaseService
 
             $purchase->details()->delete();
             $purchase->delete();
+
+            AuditLogger::record('purchase.deleted', 'Pembelian #'.$purchase->purchase_id.' dihapus.', [
+                'purchase_id' => $purchase->purchase_id,
+            ]);
         });
     }
 
@@ -91,6 +107,10 @@ class PurchaseService
             $this->assertPending($purchase, 'dibatalkan');
 
             $purchase->update(['status' => 'Dibatalkan']);
+
+            AuditLogger::record('purchase.cancelled', 'Pembelian #'.$purchase->purchase_id.' dibatalkan.', [
+                'purchase_id' => $purchase->purchase_id,
+            ]);
 
             return $purchase;
         });

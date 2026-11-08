@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BomController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\MaterialController;
 use App\Http\Controllers\Api\OrderController;
@@ -100,4 +101,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('users', UserController::class);
 
     Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
+
+    Route::get('documents/{type}/{id}', [DocumentController::class, 'show'])
+        ->whereIn('type', [
+            'nota-pesanan',
+            'bukti-bayar',
+            'nota-pembelian',
+            'spk',
+            'hasil-produksi',
+            'surat-jalan',
+        ])
+        ->whereNumber('id')
+        ->name('documents.show');
 });

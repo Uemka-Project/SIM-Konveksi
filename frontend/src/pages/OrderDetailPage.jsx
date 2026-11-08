@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { apiRequest } from '../lib/api'
+import { canAccessDocument } from '../lib/documents'
 import { formatDate, formatNumber, formatRupiah } from '../lib/format'
+import DocumentButtons from '../components/DocumentButtons'
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -49,7 +51,7 @@ export default function OrderDetailPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { can } = useAuth()
+  const { can, user } = useAuth()
   const [feedback, setFeedback] = useState(location.state?.feedback || null)
   const [error, setError] = useState('')
   const [paymentOpen, setPaymentOpen] = useState(false)
@@ -376,8 +378,33 @@ export default function OrderDetailPage() {
           </p>
         </div>
 
-        {(canHandover || canEdit || canDelete) && (
+        {(canHandover ||
+          canEdit ||
+          canDelete ||
+          canAccessDocument(user, 'nota-pesanan')) && (
           <div className="page-heading-actions">
+            <DocumentButtons
+              type="nota-pesanan"
+              id={order.order_id}
+              label="Nota"
+              onError={setError}
+            />
+            {payments.length > 0 && (
+              <DocumentButtons
+                type="bukti-bayar"
+                id={order.order_id}
+                label="Bukti Bayar"
+                onError={setError}
+              />
+            )}
+            {order.status === 'Selesai' && (
+              <DocumentButtons
+                type="surat-jalan"
+                id={order.order_id}
+                label="Surat Jalan"
+                onError={setError}
+              />
+            )}
             {canHandover && (
               <button
                 type="button"
@@ -703,7 +730,10 @@ export default function OrderDetailPage() {
             {!requirements.is_sufficient && can('purchases', 'C') && (
               <div className="panel-note">
                 Stok belum mencukupi.{' '}
-                <Link className="text-link" to="/purchases/new">
+                <Link
+                  className="text-link"
+                  to={`/purchases/new?order_id=${order.order_id}`}
+                >
                   Buat pembelian bahan
                 </Link>{' '}
                 untuk menambah stok lewat penerimaan gudang.

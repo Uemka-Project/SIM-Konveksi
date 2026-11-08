@@ -1,32 +1,64 @@
-# SIM Produksi Konveksi — Login Admin
+# SIM Produksi Konveksi Sejahtera
 
-Tahap ini hanya membangun **fungsi login Admin** untuk Sistem Informasi Manajemen Produksi Konveksi.
+Sistem informasi manajemen produksi konveksi (make-to-order) berbasis Laravel API +
+React SPA. Mencakup pesanan, pembayaran, kebutuhan bahan (BOM), pembelian, stok,
+progres produksi, serah produk, dashboard, laporan, dan dokumen FOD dalam PDF.
 
-## Cakupan
+## Cakupan fitur
 
-- Halaman login React (Vite) yang responsif.
-- API login Laravel dengan token Bearer.
-- Validasi kredensial dan pembatasan akses hanya untuk role `Admin`.
-- Tabel yang digunakan: `users`, `role`, `user_role`.
-- Database **SQL Server** melalui `docker-compose.yml`.
+- **Autentikasi & akses**: login username/email dengan token Sanctum, logout, cek sesi,
+  kelola pengguna dan peran (owner), serta matriks hak akses per modul.
+- **Data master**: pelanggan, pemasok, karyawan, bahan baku, produk, varian, dan BOM.
+- **Pesanan & pembayaran**: nota pesanan, status Baru → Diproses → Selesai/Dibatalkan,
+  DP/cicilan/pelunasan, sisa tagihan, dan serah produk.
+- **Produksi**: perintah produksi (SPK) per item pesanan, beberapa batch per item,
+  kebutuhan bahan dari BOM, serah bahan (stok keluar), progres CUTTING → SEWING →
+  FINISHING → QC, dan laporan hasil produksi.
+- **Pembelian & stok**: pembelian ke pemasok, penerimaan gudang (stok masuk),
+  mutasi stok/kartu stok, dan peringatan stok minimum.
+- **Dashboard & laporan**: ringkasan pesanan aktif, jatuh tempo, piutang, produksi
+  berjalan, pesanan siap diserahkan, laporan penjualan/pembelian/kartu
+  stok/produktivitas, ekspor CSV/PDF.
+- **Dokumen FOD PDF**: Nota Pesanan, Bukti Pembayaran, Nota Pembelian, SPK,
+  Laporan Hasil Produksi dan QC, serta Surat Jalan dan Tanda Terima.
+- **Audit sederhana**: perubahan status penting dicatat ke `backend/storage/logs/audit-*.log`.
+
+## Teknologi
+
+| Lapisan  | Teknologi                                                        |
+| -------- | ---------------------------------------------------------------- |
+| Backend  | Laravel 12, PHP 8.3+, Sanctum, Eloquent, PHPUnit                  |
+| Database | SQL Server 2022 (produksi), SQLite in-memory (pengujian)          |
+| Frontend | React 19, Vite, React Router, TanStack Query                      |
+| Deploy   | Docker, nginx, GitHub Actions (GHCR)                              |
 
 ## Struktur singkat
 
 ```text
 Konveksi/
-├── backend/                 Laravel API
-│   ├── app/Http/Controllers/Api/AuthController.php
-│   ├── app/Http/Middleware/AuthenticateApiToken.php
-│   ├── app/Support/ApiToken.php
-│   ├── database/migrations/2026_11_03_000001_create_role_table.php
-│   ├── database/migrations/2026_11_03_000002_create_user_role_table.php
+├── backend/                  Laravel API (prefix /api/v1)
+│   ├── app/Http/Controllers/Api/
+│   ├── app/Http/Requests/
+│   ├── app/Http/Resources/
+│   ├── app/Models/
+│   ├── app/Policies/
+│   ├── app/Services/         Aturan bisnis (total, stok, produksi, dokumen)
+│   ├── app/Support/          AccessMatrix, SimplePdf, DocumentAccess, AuditLogger
+│   ├── config/               Termasuk cors.php dan logging.php (kanal audit)
+│   ├── database/migrations/
+│   ├── database/seeders/
 │   └── routes/api.php
-├── frontend/                React + Vite
-│   └── src/pages/LoginPage.jsx
-└── docker-compose.yml       SQL Server + inisialisasi database
+├── frontend/                 React + Vite
+│   └── src/
+│       ├── components/       AppShell, DocumentButtons, Icons
+│       ├── context/
+│       ├── lib/              api, format, documents
+│       └── pages/
+├── docs/                     PRD, FOD, contoh nota
+└── docker-compose.yml        SQL Server + inisialisasi database
 ```
 
-## Menjalankan
+## Menjalankan secara lokal
 
 ### 1. SQL Server
 
@@ -34,18 +66,27 @@ Konveksi/
 docker compose up -d
 ```
 
-Service `sqlserver-init` akan membuat database `konveksi` secara otomatis setelah SQL Server sehat.
+Service `sqlserver-init` membuat database `KonveksiSejahteraDB` otomatis setelah
+SQL Server sehat.
 
 ### 2. Backend
 
 ```bash
 cd backend
 composer install
+cp .env.example .env
+php artisan key:generate
 php artisan migrate --seed
 php artisan serve
 ```
 
-Backend berjalan di `http://localhost:8000`.
+Backend berjalan di `http://localhost:8000` dan API di `http://localhost:8000/api/v1`.
+
+Variabel penting pada `backend/.env`:
+
+- `DB_*` untuk koneksi SQL Server.
+- `CORS_ALLOWED_ORIGINS` untuk origin frontend yang diizinkan (pisahkan dengan koma).
+  Produksi umumnya same-origin lewat nginx; nilai contoh sudah memuat Vite lokal.
 
 ### 3. Frontend
 
@@ -55,56 +96,78 @@ npm install
 npm run dev
 ```
 
-Buka `http://localhost:5173`.
+Buka `http://localhost:5173`. Vite meneruskan `/api` ke `http://127.0.0.1:8000`
+(lihat `frontend/vite.config.js`). Untuk build produksi, atur `VITE_API_BASE_URL`
+bila frontend dan backend berbeda origin.
 
-Vite meneruskan request `/api` ke backend `http://127.0.0.1:8000` (lihat `frontend/vite.config.js`). Untuk build produksi, atur `VITE_API_BASE_URL` pada `frontend/.env` bila frontend dan backend berada di origin berbeda.
+### Akun demo (seeder)
 
-### Akun demo
+Semua akun memakai password awal `Konveksi#2026`.
 
-| Field    | Nilai                 |
-| -------- | --------------------- |
-| Email    | `admin@konveksi.test` |
-| Password | `Admin123!`           |
-| Role     | `Admin`               |
+| Username | Peran    |
+| -------- | -------- |
+| `owner`  | owner    |
+| `dewi`   | admin    |
+| `budi`   | gudang   |
+| `rudi`   | produksi |
+
+Login menerima username **atau** email.
 
 ## API
 
-### `POST /api/auth/login`
+Prefix seluruh endpoint: `/api/v1`. Semua endpoint selain login wajib memakai
+header `Authorization: Bearer <token>`.
 
-```json
-{
-  "email": "admin@konveksi.test",
-  "password": "Admin123!"
-}
+| Modul      | Endpoint utama                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| Auth       | `POST auth/login`, `POST auth/logout`, `GET auth/me`                                                     |
+| Master     | `apiResource customers`, `suppliers`, `employees`, `materials`, `products`; `products/{id}/variants`; `variants/{id}/bom` |
+| Pesanan    | `apiResource orders`, `POST orders/{id}/cancel`, `GET orders/{id}/balance`, `GET orders/{id}/material-requirements`, `GET/POST orders/{id}/payments`, `POST orders/{id}/handover` |
+| Produksi   | `POST order-items/{id}/production-orders`, `GET production-orders`, `GET production-orders/{id}/requirements`, `POST production-orders/{id}/issue-materials`, `POST production-orders/{id}/progress`, `PATCH progress/{id}` |
+| Pembelian  | `apiResource purchases`, `POST purchases/{id}/receive`, `POST purchases/{id}/cancel`                    |
+| Stok       | `GET stock-movements`, `GET materials/{id}/ledger`, `GET materials/low-stock`                           |
+| Dokumen    | `GET documents/{type}/{id}` (PDF)                                                                        |
+| Laporan    | `GET reports/sales`, `reports/purchases`, `reports/stock-card`, `reports/productivity`, `GET reports/{type}/export?format=csv|pdf` |
+| Akses      | `apiResource users`, `PUT users/{id}/roles`, `GET roles`                                                 |
+
+### Jenis dokumen PDF
+
+| `type`           | Sumber data        | Peran yang boleh membaca           |
+| ---------------- | ------------------ | ---------------------------------- |
+| `nota-pesanan`   | ID pesanan         | owner, admin                       |
+| `bukti-bayar`    | ID pesanan         | owner, admin                       |
+| `nota-pembelian` | ID pembelian       | owner, admin, gudang               |
+| `spk`            | ID perintah produksi | owner, admin, produksi, gudang   |
+| `hasil-produksi` | ID perintah produksi | owner, admin, produksi           |
+| `surat-jalan`    | ID pesanan         | owner, admin                       |
+
+Respons error memakai amplop seragam `{ "message": "...", "errors": { ... } }`
+(422 untuk validasi/aturan bisnis, 403 untuk akses, 404 untuk data/dokumen tidak ada).
+
+## Validasi dan pengujian
+
+```bash
+# Backend
+cd backend
+vendor/bin/pint --test
+php artisan test
+
+# Frontend
+cd frontend
+npm run lint
+npm run build
 ```
 
-Respons sukses:
-
-```json
-{
-  "message": "Login berhasil.",
-  "data": {
-    "token": "...",
-    "token_type": "Bearer",
-    "expires_in": 28800,
-    "user": {
-      "id": 1,
-      "name": "Administrator",
-      "email": "admin@konveksi.test",
-      "roles": [{ "id": 1, "name": "Admin", "slug": "admin" }]
-    }
-  }
-}
-```
-
-### `GET /api/auth/me`
-
-Header: `Authorization: Bearer <token>`
+CI menjalankan Pint, PHPUnit (SQLite), ESLint, dan build Vite
+(`.github/workflows/quality.yml`). Rilis image ke GHCR dan deploy produksi diatur
+di `.github/workflows/release.yml`.
 
 ## Catatan driver SQL Server
 
 - Konfigurasi utama ada di `backend/.env` (`DB_CONNECTION=sqlsrv`).
-- Jika ekstensi PHP `pdo_sqlsrv` tersedia, Laravel memakainya secara otomatis.
-- Jika `pdo_sqlsrv` belum terpasang, konfigurasi otomatis memakai `pdo_odbc` + **ODBC Driver 18 for SQL Server**.
+- Jika ekstensi PHP `pdo_sqlsrv` tersedia, Laravel memakainya otomatis.
+- Jika `pdo_sqlsrv` belum terpasang, konfigurasi memakai `pdo_odbc` + **ODBC Driver 18
+  for SQL Server**.
 - Paksa salah satu driver dengan `DB_ODBC=false` (pdo_sqlsrv) atau `DB_ODBC=true` (ODBC).
-- Untuk instalasi standar di Windows, pastikan **ODBC Driver 18 for SQL Server** dan ekstensi `pdo_sqlsrv`/`sqlsrv` sesuai versi PHP terpasang.
+- Pada Windows, pastikan **ODBC Driver 18 for SQL Server** dan ekstensi
+  `pdo_sqlsrv`/`sqlsrv` sesuai versi PHP terpasang.

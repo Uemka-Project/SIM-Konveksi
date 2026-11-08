@@ -334,3 +334,15 @@ export function DownloadIcon(props) {
   )
 }
 
+export function PrinterIcon(props) {
+  return (
+    <IconBase {...props}>
+      <path d="M7 8V3h10v5" />
+      <rect x="4" y="8" width="16" height="8" rx="2" />
+      <path d="M7 16h10v5H7z" />
+      <path d="M17 11h.01" />
+    </IconBase>
+  )
+}
+
+

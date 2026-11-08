@@ -81,6 +81,19 @@ return [
             'replace_placeholders' => true,
         ],
 
+        /*
+         * Dedicated channel for the simple audit trail of status changes
+         * (PRD section 6, observability). It is a daily file so no database
+         * table has to be added.
+         */
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => 'info',
+            'max_files' => env('AUDIT_LOG_DAYS', 90),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

@@ -85,6 +85,21 @@ class DashboardController extends Controller
                 - (float) ($order->payments_sum_amount ?? 0) > 0)
             ->count();
 
+        // FR-P5/FR-O6: every production order is Selesai and the invoice is
+        // fully paid, so the admin only has to hand the products over.
+        $readyForHandover = $this->orderQuery()
+            ->where('status', 'Diproses')
+            ->whereHas('productionOrders')
+            ->whereDoesntHave('productionOrders', function (Builder $query): void {
+                $query->where('status', '!=', 'Selesai');
+            })
+            ->orderBy('due_date')
+            ->orderBy('order_id')
+            ->get()
+            ->filter(fn (Order $order): bool => (float) $order->total_amount
+                - (float) ($order->payments_sum_amount ?? 0) <= 0.001)
+            ->values();
+
         $runningProduction = ProductionOrder::query()
             ->with([
                 'orderDetail.order.customer',
@@ -131,6 +146,7 @@ class DashboardController extends Controller
                     'low_stock_materials' => $lowStockCount,
                     'unpaid_orders' => $unpaidCount,
                     'unpaid_total' => round($unpaidTotal, 2),
+                    'ready_for_handover' => $readyForHandover->count(),
                 ],
                 'low_stock' => MaterialResource::collection($lowStock)->toArray(request()),
                 'recent_orders' => OrderResource::collection($recentOrders)->toArray(request()),
@@ -139,6 +155,9 @@ class DashboardController extends Controller
                 'overdue_orders' => OrderResource::collection($overdueOrders)->toArray(request()),
                 'running_production' => ProductionOrderResource::collection($runningProduction)
                     ->toArray(request()),
+                'ready_for_handover' => OrderResource::collection(
+                    $readyForHandover->take(10)->values(),
+                )->toArray(request()),
                 'unpaid_total' => round($unpaidTotal, 2),
             ],
         ]);

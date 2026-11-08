@@ -30,6 +30,7 @@ final class AccessMatrix
         'production' => ['owner' => 'CRUD', 'admin' => 'CRU', 'produksi' => 'RU', 'gudang' => 'RU'],
         'stock' => ['owner' => 'R', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'CR'],
         'reports' => ['owner' => 'R', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'R'],
+        'documents' => ['owner' => 'R', 'admin' => 'R', 'produksi' => 'R', 'gudang' => 'R'],
     ];
 
     /**

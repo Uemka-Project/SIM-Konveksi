@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Support\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 class OrderService
@@ -29,6 +30,12 @@ class OrderService
             ]);
 
             $this->createDetails($order, $details);
+
+            AuditLogger::record('order.created', 'Pesanan #'.$order->order_id.' dibuat.', [
+                'order_id' => $order->order_id,
+                'customer_id' => $order->customer_id,
+                'total_amount' => (float) $order->total_amount,
+            ]);
 
             return $order;
         });
@@ -70,6 +77,11 @@ class OrderService
             $order->details()->delete();
             $this->createDetails($order, $details);
 
+            AuditLogger::record('order.updated', 'Pesanan #'.$order->order_id.' diperbarui.', [
+                'order_id' => $order->order_id,
+                'total_amount' => (float) $order->total_amount,
+            ]);
+
             return $order;
         });
     }
@@ -98,6 +110,10 @@ class OrderService
 
             $order->details()->delete();
             $order->delete();
+
+            AuditLogger::record('order.deleted', 'Pesanan #'.$order->order_id.' dihapus.', [
+                'order_id' => $order->order_id,
+            ]);
         });
     }
 
@@ -123,6 +139,10 @@ class OrderService
             }
 
             $order->update(['status' => 'Dibatalkan']);
+
+            AuditLogger::record('order.cancelled', 'Pesanan #'.$order->order_id.' dibatalkan.', [
+                'order_id' => $order->order_id,
+            ]);
 
             return $order;
         });
@@ -171,6 +191,10 @@ class OrderService
             }
 
             $order->update(['status' => 'Selesai']);
+
+            AuditLogger::record('order.handed_over', 'Produk pesanan #'.$order->order_id.' diserahkan.', [
+                'order_id' => $order->order_id,
+            ]);
 
             return $order;
         });
@@ -223,6 +247,14 @@ class OrderService
                 $order->update(['status' => 'Diproses']);
             }
 
+            AuditLogger::record('payment.recorded', 'Pembayaran #'.$payment->payment_id
+                .' untuk pesanan #'.$order->order_id.' dicatat.', [
+                    'payment_id' => $payment->payment_id,
+                    'order_id' => $order->order_id,
+                    'amount' => (float) $payment->amount,
+                    'payment_type' => $payment->payment_type,
+                ]);
+
             return $payment;
         });
     }
@@ -234,7 +266,17 @@ class OrderService
     {
         DB::transaction(function () use ($payment): void {
             $this->lockOrder($payment->order);
+
+            $attributes = [
+                'payment_id' => $payment->payment_id,
+                'order_id' => $payment->order_id,
+                'amount' => (float) $payment->amount,
+            ];
+
             $payment->delete();
+
+            AuditLogger::record('payment.deleted', 'Pembayaran #'.$attributes['payment_id']
+                .' pada pesanan #'.$attributes['order_id'].' dihapus.', $attributes);
         });
     }
 

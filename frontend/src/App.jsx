@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppShell from './components/AppShell'
 import ProtectedRoute from './components/ProtectedRoute'
+import { useAuth } from './context/useAuth'
 import CustomersPage from './pages/CustomersPage'
 import DashboardPage from './pages/DashboardPage'
 import EmployeesPage from './pages/EmployeesPage'
@@ -22,6 +23,24 @@ import SuppliersPage from './pages/SuppliersPage'
 import UsersPage from './pages/UsersPage'
 import './App.css'
 
+/**
+ * Front-end guard that mirrors App\Support\AccessMatrix. The API stays the
+ * source of truth; this only keeps users out of screens they cannot read.
+ */
+function ModuleRoute({ module, children }) {
+  const { can } = useAuth()
+
+  if (!can(module, 'R')) {
+    return (
+      <div className="banner banner--error" role="alert">
+        Anda tidak memiliki akses ke halaman ini.
+      </div>
+    )
+  }
+
+  return children
+}
+
 export default function App() {
   return (
     <Routes>
@@ -34,29 +53,166 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<DashboardPage />} />
-        <Route path="customers" element={<CustomersPage />} />
-        <Route path="suppliers" element={<SuppliersPage />} />
-        <Route path="employees" element={<EmployeesPage />} />
-        <Route path="materials" element={<MaterialsPage />} />
-        <Route path="products" element={<ProductsPage />} />
-        <Route path="products/:productId" element={<ProductDetailPage />} />
-        <Route path="orders" element={<OrdersPage />} />
-        <Route path="orders/new" element={<OrderFormPage />} />
-        <Route path="orders/:orderId" element={<OrderDetailPage />} />
-        <Route path="orders/:orderId/edit" element={<OrderFormPage />} />
-        <Route path="production-orders" element={<ProductionOrdersPage />} />
+        <Route
+          index
+          element={
+            <ModuleRoute module="materials">
+              <DashboardPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="customers"
+          element={
+            <ModuleRoute module="customers">
+              <CustomersPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="suppliers"
+          element={
+            <ModuleRoute module="suppliers">
+              <SuppliersPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="employees"
+          element={
+            <ModuleRoute module="employees">
+              <EmployeesPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="materials"
+          element={
+            <ModuleRoute module="materials">
+              <MaterialsPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="products"
+          element={
+            <ModuleRoute module="products">
+              <ProductsPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="products/:productId"
+          element={
+            <ModuleRoute module="products">
+              <ProductDetailPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="orders"
+          element={
+            <ModuleRoute module="orders">
+              <OrdersPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="orders/new"
+          element={
+            <ModuleRoute module="orders">
+              <OrderFormPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="orders/:orderId"
+          element={
+            <ModuleRoute module="orders">
+              <OrderDetailPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="orders/:orderId/edit"
+          element={
+            <ModuleRoute module="orders">
+              <OrderFormPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="production-orders"
+          element={
+            <ModuleRoute module="production">
+              <ProductionOrdersPage />
+            </ModuleRoute>
+          }
+        />
         <Route
           path="production-orders/:productionOrderId"
-          element={<ProductionOrderDetailPage />}
+          element={
+            <ModuleRoute module="production">
+              <ProductionOrderDetailPage />
+            </ModuleRoute>
+          }
         />
-        <Route path="purchases" element={<PurchasesPage />} />
-        <Route path="purchases/new" element={<PurchaseFormPage />} />
-        <Route path="purchases/:purchaseId" element={<PurchaseDetailPage />} />
-        <Route path="purchases/:purchaseId/edit" element={<PurchaseFormPage />} />
-        <Route path="stock-movements" element={<StockMovementsPage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="users" element={<UsersPage />} />
+        <Route
+          path="purchases"
+          element={
+            <ModuleRoute module="purchases">
+              <PurchasesPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="purchases/new"
+          element={
+            <ModuleRoute module="purchases">
+              <PurchaseFormPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="purchases/:purchaseId"
+          element={
+            <ModuleRoute module="purchases">
+              <PurchaseDetailPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="purchases/:purchaseId/edit"
+          element={
+            <ModuleRoute module="purchases">
+              <PurchaseFormPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="stock-movements"
+          element={
+            <ModuleRoute module="stock">
+              <StockMovementsPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="reports"
+          element={
+            <ModuleRoute module="reports">
+              <ReportsPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="users"
+          element={
+            <ModuleRoute module="users">
+              <UsersPage />
+            </ModuleRoute>
+          }
+        />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

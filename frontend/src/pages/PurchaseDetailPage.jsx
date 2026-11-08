@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { apiRequest } from '../lib/api'
 import { formatDate, formatNumber, formatRupiah } from '../lib/format'
+import DocumentButtons from '../components/DocumentButtons'
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -183,6 +184,13 @@ export default function PurchaseDetailPage() {
         </div>
 
         <div className="page-heading-actions">
+          <DocumentButtons
+            type="nota-pembelian"
+            id={purchase.purchase_id}
+            label="Nota Pembelian"
+            onError={setError}
+          />
+
           {canReceive && (
             <button
               type="button"

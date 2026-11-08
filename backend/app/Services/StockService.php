@@ -6,6 +6,7 @@ use App\Exceptions\BusinessRuleException;
 use App\Models\Material;
 use App\Models\Purchase;
 use App\Models\StockMovement;
+use App\Support\AuditLogger;
 use Illuminate\Support\Facades\DB;
 
 class StockService
@@ -55,6 +56,12 @@ class StockService
             }
 
             $purchase->update(['status' => 'Diterima']);
+
+            AuditLogger::record('purchase.received', 'Pembelian #'.$purchase->purchase_id
+                .' diterima; stok bahan diperbarui.', [
+                    'purchase_id' => $purchase->purchase_id,
+                    'item_count' => $details->count(),
+                ]);
 
             return $purchase;
         });

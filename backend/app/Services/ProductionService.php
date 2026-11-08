@@ -9,6 +9,7 @@ use App\Models\OrderDetail;
 use App\Models\ProductionOrder;
 use App\Models\ProductionProgress;
 use App\Models\StockMovement;
+use App\Support\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -71,13 +72,22 @@ class ProductionService
                 throw new BusinessRuleException($message, ['target_date' => [$message]]);
             }
 
-            return ProductionOrder::create([
+            $production = ProductionOrder::create([
                 'order_detail_id' => $detail->order_detail_id,
                 'planned_quantity' => $plannedQuantity,
                 'status' => 'Menunggu',
                 'start_date' => $startDate,
                 'target_date' => $targetDate,
             ]);
+
+            AuditLogger::record('production.created', 'SPK #'.$production->production_order_id
+                .' dibuat untuk item pesanan #'.$detail->order_detail_id.'.', [
+                    'production_order_id' => $production->production_order_id,
+                    'order_detail_id' => $detail->order_detail_id,
+                    'planned_quantity' => $plannedQuantity,
+                ]);
+
+            return $production;
         });
     }
 
@@ -220,6 +230,12 @@ class ProductionService
                 'start_date' => $production->start_date ?? $issuedAt->toDateString(),
             ]);
 
+            AuditLogger::record('production.materials_issued', 'Bahan SPK #'
+                .$production->production_order_id.' diserahkan; status menjadi Berjalan.', [
+                    'production_order_id' => $production->production_order_id,
+                    'material_count' => count($required),
+                ]);
+
             return $production;
         });
     }
@@ -264,6 +280,15 @@ class ProductionService
             ]);
 
             $this->syncStatus($production);
+
+            AuditLogger::record('production.progress_recorded', 'Progres '
+                .$progress->stage_code.' ('.$progress->status.') pada SPK #'
+                .$production->production_order_id.' dicatat.', [
+                    'progress_id' => $progress->progress_id,
+                    'production_order_id' => $production->production_order_id,
+                    'stage_code' => $progress->stage_code,
+                    'status' => $progress->status,
+                ]);
 
             return $progress;
         });
@@ -313,6 +338,15 @@ class ProductionService
             ]);
 
             $this->syncStatus($production);
+
+            AuditLogger::record('production.progress_updated', 'Progres #'
+                .$progress->progress_id.' pada SPK #'.$production->production_order_id
+                .' diperbarui.', [
+                    'progress_id' => $progress->progress_id,
+                    'production_order_id' => $production->production_order_id,
+                    'stage_code' => $progress->stage_code,
+                    'status' => $progress->status,
+                ]);
 
             return $progress;
         });

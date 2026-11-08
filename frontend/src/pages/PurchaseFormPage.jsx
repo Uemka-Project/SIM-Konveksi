@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { apiRequest } from '../lib/api'
 import { formatNumber, formatRupiah } from '../lib/format'
@@ -23,7 +23,7 @@ function today() {
   return formatInputDate(new Date())
 }
 
-function initialForm(purchase) {
+function initialForm(purchase, requirements) {
   if (purchase) {
     return {
       supplier_id: String(purchase.supplier_id),
@@ -36,24 +36,34 @@ function initialForm(purchase) {
     }
   }
 
+  const shortageItems = (requirements?.items || [])
+    .filter((item) => Number(item.shortage_quantity) > 0)
+    .map((item) => ({
+      material_id: String(item.material_id),
+      quantity: String(item.shortage_quantity),
+      unit_price: '',
+    }))
+
   return {
     supplier_id: '',
     purchase_date: today(),
-    details: [{ ...EMPTY_ITEM }],
+    details: shortageItems.length > 0 ? shortageItems : [{ ...EMPTY_ITEM }],
   }
 }
 
 function PurchaseFormContent({
   isEdit,
   purchaseId,
+  orderId,
   purchase,
+  requirements,
   suppliers,
   materials,
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { can } = useAuth()
-  const [form, setForm] = useState(() => initialForm(purchase))
+  const [form, setForm] = useState(() => initialForm(purchase, requirements))
   const [error, setError] = useState('')
 
   const saveMutation = useMutation({
@@ -196,6 +206,13 @@ function PurchaseFormContent({
           </p>
         </div>
       </div>
+
+      {orderId && (
+        <div className="panel-note">
+          Item pembelian diisi otomatis dari kekurangan bahan pesanan #{orderId}.
+          Sesuaikan jumlah, harga, dan pemasok sebelum menyimpan.
+        </div>
+      )}
 
       {error && (
         <div className="banner banner--error" role="alert">
@@ -415,12 +432,20 @@ function PurchaseFormContent({
 
 export default function PurchaseFormPage() {
   const { purchaseId } = useParams()
+  const [searchParams] = useSearchParams()
   const isEdit = Boolean(purchaseId)
+  const orderId = isEdit ? null : searchParams.get('order_id')
 
   const purchaseQuery = useQuery({
     queryKey: ['purchase', purchaseId],
     queryFn: () => apiRequest(`/purchases/${purchaseId}`),
     enabled: isEdit,
+  })
+
+  const requirementsQuery = useQuery({
+    queryKey: ['order', orderId, 'material-requirements'],
+    queryFn: () => apiRequest(`/orders/${orderId}/material-requirements`),
+    enabled: Boolean(orderId),
   })
 
   const suppliersQuery = useQuery({
@@ -432,6 +457,24 @@ export default function PurchaseFormPage() {
     queryKey: ['materials', 'options'],
     queryFn: () => apiRequest('/materials?per_page=100'),
   })
+
+  if (orderId && requirementsQuery.isLoading) {
+    return (
+      <div className="panel-state">
+        <span className="spinner spinner--dark" />
+        Menghitung kebutuhan bahan pesanan...
+      </div>
+    )
+  }
+
+  if (orderId && requirementsQuery.isError) {
+    return (
+      <div className="banner banner--error" role="alert">
+        <AlertIcon size={18} />
+        {requirementsQuery.error.message}
+      </div>
+    )
+  }
 
   if (isEdit && purchaseQuery.isLoading) {
     return (
@@ -471,10 +514,12 @@ export default function PurchaseFormPage() {
 
   return (
     <PurchaseFormContent
-      key={purchaseId || 'new'}
+      key={purchaseId || orderId || 'new'}
       isEdit={isEdit}
       purchaseId={purchaseId}
+      orderId={orderId}
       purchase={purchaseQuery.data?.data}
+      requirements={requirementsQuery.data?.data}
       suppliers={suppliersQuery.data?.data || []}
       materials={materialsQuery.data?.data || []}
     />

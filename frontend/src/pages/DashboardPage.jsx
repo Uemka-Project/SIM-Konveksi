@@ -10,6 +10,7 @@ import {
   ProductIcon,
   ProductionIcon,
   SupplierIcon,
+  TruckIcon,
   WalletIcon,
 } from '../components/Icons'
 import { apiRequest } from '../lib/api'
@@ -29,6 +30,7 @@ const SUMMARY_CONFIG = [
   { key: 'due_soon_orders', label: 'Jatuh tempo ≤ 7 hari', icon: ClockIcon },
   { key: 'overdue_orders', label: 'Lewat jatuh tempo', icon: AlertTriangleIcon },
   { key: 'running_production', label: 'Produksi berjalan', icon: ProductionIcon },
+  { key: 'ready_for_handover', label: 'Siap diserahkan', icon: TruckIcon },
   { key: 'unpaid_total', label: 'Piutang pesanan', icon: WalletIcon, money: true },
 ]
 
@@ -339,6 +341,65 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-heading">
+          <div>
+            <h3>Siap Diserahkan</h3>
+            <p>
+              Semua perintah produksi selesai dan tagihan lunas. Serahkan produk
+              lewat halaman detail pesanan.
+            </p>
+          </div>
+          <span className="badge badge--success">
+            {summary.ready_for_handover || 0} pesanan
+          </span>
+        </div>
+
+        {(data.ready_for_handover || []).length === 0 ? (
+          <div className="panel-state">
+            Belum ada pesanan yang siap diserahkan.
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Pesanan</th>
+                  <th>Pelanggan</th>
+                  <th>Jatuh Tempo</th>
+                  <th className="align-right">Total</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {data.ready_for_handover.map((order) => (
+                  <tr key={order.order_id}>
+                    <td>
+                      <Link className="text-link" to={`/orders/${order.order_id}`}>
+                        #{order.order_id}
+                      </Link>
+                    </td>
+                    <td>{order.customer?.name || '—'}</td>
+                    <td>{formatDate(order.due_date)}</td>
+                    <td className="align-right">
+                      {formatRupiah(order.total_amount)}
+                    </td>
+                    <td className="align-right">
+                      <Link
+                        className="text-link"
+                        to={`/orders/${order.order_id}`}
+                      >
+                        Serahkan
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="panel">

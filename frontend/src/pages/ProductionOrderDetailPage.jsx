@@ -17,6 +17,7 @@ import {
   PlusIcon,
   ProductionIcon,
 } from '../components/Icons'
+import DocumentButtons from '../components/DocumentButtons'
 
 const STATUS_BADGE = {
   Menunggu: 'badge badge--muted',
@@ -322,6 +323,19 @@ export default function ProductionOrderDetailPage() {
         </div>
 
         <div className="page-heading-actions">
+          <DocumentButtons
+            type="spk"
+            id={production.production_order_id}
+            label="Cetak SPK"
+            onError={setError}
+          />
+          <DocumentButtons
+            type="hasil-produksi"
+            id={production.production_order_id}
+            label="Hasil Produksi"
+            onError={setError}
+          />
+
           {canIssue && (
             <button
               type="button"
